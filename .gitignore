@@ -47,3 +47,7 @@ Thumbs.db
 # Host runtime logs
 Cowbania.Host.log
 Cowbania.Host.startup.log
+
+# Local secrets (never commit)
+tools/nanogpt/.secret/
+tools/nanogpt/out/
