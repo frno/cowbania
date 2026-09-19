@@ -2,10 +2,11 @@
 
 Locally generated pixel art for Cowbania's Dust-Gothic Frontier presentation.
 
-- **Player, Bandit, and Wildlife art** is produced by an AI-assisted pipeline (see [Actor art pipeline](#actor-art-pipeline) below). To regenerate:
+- **Player, Bandit, Wildlife, and Background art** is produced by an AI-assisted pipeline (see [Actor art pipeline](#actor-art-pipeline) below). To regenerate:
   - Player (32x32, 26 frames): `python tools\nanogpt\pixelate_sprite.py`
   - Enemies (16x16, 24 frames): `python tools\nanogpt\pixelate_enemy.py`
-- **Remaining non-player art (Pickups, Terrain, Props, Effects, UI, Backgrounds)** is still generated procedurally. Run `python tools\generate_frontier_assets.py` from this directory (or invoke it by absolute path) to reproduce and validate those PNGs. The `bandit()` and `wildlife()` functions in that script remain as reference silhouettes but are no longer the shipping source-of-truth.
+  - Backgrounds (256x144, 4 layers): `python tools\nanogpt\pixelate_background.py`
+- **Remaining non-AI art (Pickups, Terrain, Props, Effects, UI)** is still generated procedurally. Run `python tools\generate_frontier_assets.py` from this directory (or invoke it by absolute path) to reproduce and validate those PNGs. The `player()`, `bandit()`, `wildlife()`, and background functions in that script remain as reference silhouettes but are no longer the shipping source-of-truth.
 
 ## Stable asset contract
 
@@ -110,4 +111,20 @@ Key deltas from the 32×32 player pipeline (all captured in `.github/skills/nano
 - Reference chain: `hero_bandit_patrol.png` locks bandit identity, other bandit poses `--reference` off it. Same for wildlife. **Do not cross-chain bandit ↔ wildlife** — that produced hybrid silhouettes in testing.
 
 
-`Assets/Art/Frontier/tools/generate_frontier_assets.py` still owns non-actor art (pickups, terrain, props, effects, UI, backgrounds). Its `player()`, `bandit()`, and `wildlife()` functions are retained as reference silhouettes only and are no longer the shipping source of truth — do not reintroduce them as such.
+`Assets/Art/Frontier/tools/generate_frontier_assets.py` still owns non-actor art (pickups, terrain, props, effects, UI). Its `player()`, `bandit()`, `wildlife()`, and background layer functions are retained as reference silhouettes only and are no longer the shipping source of truth — do not reintroduce them as such.
+
+### Backgrounds (256×144, 4 tileable parallax layers)
+
+Two stages × two parallax bands: `hub_far`, `hub_mid`, `branch_far`, `branch_mid`. Regenerated via `tools/nanogpt/generate_background_frames.py` (text-to-image nano-banana-2, 16:9 aspect, one call per layer, no reference chaining — each parallax band is its own composition) and pixelated by `tools/nanogpt/pixelate_background.py`.
+
+Deltas from the actor pipelines (all captured in SKILL.md lesson 14):
+
+- **Palette per layer, 2 colors only**:
+  - far layers — sky `distance_violet 0x504865` (rendered as transparent alpha=0), silhouette `blue_grey 0x536778`.
+  - mid layers — sky `dusk_plum 0x392326` (transparent), silhouette `dusk_plum_hi 0x644c5b`.
+- **Sky pixels are transparent**, so the game clears to any base color underneath and the layers composite naturally with the room dressing.
+- **Classification is threshold-from-sampled-sky**: the pipeline reads the majority top-row color as "this generation's sky" and treats any pixel further than ~30 RGB units from it as silhouette. This tolerates the AI drawing distant features (buildings, telegraph poles, pine tops) as a third darker tone that would otherwise be misclassified as sky by a distance-to-silhouette check.
+- **Any-silhouette-wins downscale** (not majority-vote) — narrow features like telegraph poles are ~2 source pixels wide and would lose a majority-vote patch downscale. The current pipeline sets an output cell silhouette if ANY source pixel in its patch was classified as silhouette.
+- **Horizontal seam-repair** is required — the game wraps by texture width. `_seam_blend` interpolates the silhouette height map symmetrically across the wrap seam using a linear ramp so `heights[0] == heights[-1]` after processing and the interior stays untouched. Validation asserts equal seam heights.
+- **One AI call per layer** — 4 calls total for a full regeneration. No per-frame overrides (backgrounds are single-frame).
+- **Prompt discipline** — explicitly forbid sun/moon/stars/clouds/birds/ground-plane/text; ask for 2-color pure silhouette-band composition; low saturation, low contrast, "receding parallax layer" — anything more elaborate breaks the actor-must-pop-against-background readability rule.
