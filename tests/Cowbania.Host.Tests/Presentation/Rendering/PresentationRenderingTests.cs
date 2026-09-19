@@ -78,6 +78,12 @@ internal static class PresentationRenderingTests
                             Assert(source.Contains("EnemyPresentationStateSelector.Select(enemy)", StringComparison.Ordinal) &&
                                    source.Contains("FrontierAnimationCatalog.ForEnemy(enemy)", StringComparison.Ordinal),
                                 "enemy presentation must be selected from deterministic enemy snapshots");
+                            Assert(actors.Contains("private const int PlayerScale = 2", StringComparison.Ordinal) &&
+                                   actors.Contains("private const int ActorScale = 3", StringComparison.Ordinal) &&
+                                   actors.Contains("FrontierAnimationCatalog.PlayerMetadata", StringComparison.Ordinal) &&
+                                   actors.Contains("FrontierAnimationCatalog.BanditMetadata", StringComparison.Ordinal) &&
+                                   actors.Contains("FrontierAnimationCatalog.WildlifeMetadata", StringComparison.Ordinal),
+                                "player rendering must use the new 2x player scale while bandit and wildlife actors keep their authored 3x anchors");
                             Assert(!source.Contains("new Random", StringComparison.Ordinal) &&
                                    !source.Contains("DateTime.", StringComparison.Ordinal),
                                 "presentation must not introduce nondeterministic random or wall-clock selection");

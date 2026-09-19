@@ -83,10 +83,16 @@ internal static class AssetsTests
             {
                 var root = FindRepositoryRoot();
                             var project = ReadSource(root, "src", "Cowbania.Host", "Cowbania.Host.csproj");
+                            var assets = ReadSource(root, "src", "Cowbania.Host", "Presentation", "Assets", "FrontierAssets.cs");
                             Assert(project.Contains(@"Assets\Art\Frontier\**\*.png", StringComparison.Ordinal) &&
                                    project.Contains("CopyToOutputDirectory=\"PreserveNewest\"", StringComparison.Ordinal) &&
                                    project.Contains("%(RecursiveDir)", StringComparison.Ordinal),
                                 "the Host project must recursively preserve the Frontier asset tree in build output");
+                            Assert(assets.Contains("LoadActors(graphicsDevice, \"Player\", 32, 32", StringComparison.Ordinal) &&
+                                   assets.Contains("LoadActors(graphicsDevice, \"Bandit\", 16, 16", StringComparison.Ordinal) &&
+                                   assets.Contains("LoadActors(graphicsDevice, \"Wildlife\", 16, 16", StringComparison.Ordinal) &&
+                                   assets.Contains("LoadActors(graphicsDevice, \"Pickup\", 16, 16", StringComparison.Ordinal),
+                                "Frontier asset loading must enforce 32x32 player sprites while leaving other actor and pickup art at 16x16");
 
                             var outputArt = Path.Combine(root, "src", "Cowbania.Host", "bin", "Debug", "net10.0", "Assets", "Art");
                             foreach (var asset in ExpectedFrontierAssets())
