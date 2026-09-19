@@ -1,13 +1,16 @@
 ---
 name: "squad-conventions"
-description: "Core conventions and patterns used in the Squad codebase"
+description: "Use only when maintaining the Squad CLI/framework, create-squad package, or Squad-owned templates; never for Cowbania game code."
 domain: "project-conventions"
 confidence: "high"
 source: "manual"
 ---
 
 ## Context
-These conventions apply to all work on the Squad CLI tool (`create-squad`). Squad is a zero-dependency Node.js package that adds AI agent teams to any project. Understanding these patterns is essential before modifying any Squad source code.
+These conventions apply exclusively to maintenance of the Squad CLI/framework,
+the `create-squad` package, and Squad-owned templates. They do not apply to
+Cowbania gameplay, MonoGame host, assets, or game tests. Squad is a
+zero-dependency Node.js package that adds AI agent teams to any project.
 
 ## Patterns
 
