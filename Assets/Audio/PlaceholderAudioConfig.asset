@@ -1,0 +1,33 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 164e60f8c5a95196953a3ffffe1923c6, type: 3}
+  m_Name: PlaceholderAudioConfig
+  m_EditorClassIdentifier:
+  events:
+  - eventType: 0
+    clip: {fileID: 8300000, guid: 2715d5258cde5693888724875b5617b0, type: 3}
+    volume: 0.8
+  - eventType: 1
+    clip: {fileID: 8300000, guid: 452e1d45ea645f87b8a6c7ffa2d54969, type: 3}
+    volume: 0.65
+  - eventType: 2
+    clip: {fileID: 8300000, guid: 8eb23f7a795154ccaaa8af1cbfc872d7, type: 3}
+    volume: 0.7
+  - eventType: 3
+    clip: {fileID: 8300000, guid: bc90399eed8658ab8b3be451620aaa21, type: 3}
+    volume: 0.7
+  - eventType: 4
+    clip: {fileID: 8300000, guid: b6c5f23b76e158aaa01841adb67b097d, type: 3}
+    volume: 0.7
+  - eventType: 5
+    clip: {fileID: 8300000, guid: 9e5f932597e4538f8c508c5cce6d711d, type: 3}
+    volume: 0.8

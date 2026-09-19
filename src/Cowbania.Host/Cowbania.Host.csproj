@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="log4net" Version="3.4.0" />
+    <ProjectReference Include="..\Cowbania.Core\Cowbania.Core.csproj" />
+    <PackageReference Include="MonoGame.Framework.DesktopGL" Version="3.8.2.1105" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="..\..\Assets\Art\Placeholders\Player\*.png" Link="Assets\Art\Placeholders\Player\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\..\Assets\Art\Placeholders\Enemy\*.png" Link="Assets\Art\Placeholders\Enemy\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\..\Assets\Art\Placeholders\Pickup\*.png" Link="Assets\Art\Placeholders\Pickup\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\..\Assets\Audio\*.wav" Link="Assets\Audio\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Cowbania.Host.Tests" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,17 @@
+{
+  "Lead": {"persistent_name":"Lead","universe":"descriptive","created_at":"2026-09-19T10:05:56.796+02:00","legacy_named":false,"status":"retired"},
+  "Gunslinger": {"persistent_name":"Gunslinger","universe":"descriptive","created_at":"2026-09-19T10:05:56.796+02:00","legacy_named":false,"status":"retired"},
+  "Pixelwright": {"persistent_name":"Pixelwright","universe":"descriptive","created_at":"2026-09-19T10:05:56.796+02:00","legacy_named":false,"status":"retired"},
+  "Saloon": {"persistent_name":"Saloon","universe":"descriptive","created_at":"2026-09-19T10:05:56.796+02:00","legacy_named":false,"status":"retired"},
+  "Marshal": {"persistent_name":"Marshal","universe":"descriptive","created_at":"2026-09-19T10:05:56.796+02:00","legacy_named":false,"status":"retired"},
+  "game-director": {"persistent_name":"game-director","universe":"descriptive","created_at":"2026-09-19T17:25:17.648+02:00","legacy_named":false,"status":"active"},
+  "gameplay-systems": {"persistent_name":"gameplay-systems","universe":"descriptive","created_at":"2026-09-19T17:25:17.648+02:00","legacy_named":false,"status":"active"},
+  "monogame-runtime": {"persistent_name":"monogame-runtime","universe":"descriptive","created_at":"2026-09-19T17:25:17.648+02:00","legacy_named":false,"status":"active"},
+  "runtime-diagnostics": {"persistent_name":"runtime-diagnostics","universe":"descriptive","created_at":"2026-09-19T17:41:28.321+02:00","legacy_named":false,"status":"active"},
+  "visual-presentation": {"persistent_name":"visual-presentation","universe":"descriptive","created_at":"2026-09-19T17:25:17.648+02:00","legacy_named":false,"status":"active"},
+  "quality-engineering": {"persistent_name":"quality-engineering","universe":"descriptive","created_at":"2026-09-19T17:25:17.648+02:00","legacy_named":false,"status":"active"},
+  "Scribe": {"persistent_name":"Scribe","universe":"descriptive","created_at":"2026-09-19T10:05:56.796+02:00","legacy_named":false,"status":"active"},
+  "Ralph": {"persistent_name":"Ralph","universe":"descriptive","created_at":"2026-09-19T10:05:56.796+02:00","legacy_named":false,"status":"active"},
+  "Rai": {"persistent_name":"Rai","universe":"descriptive","created_at":"2026-09-19T10:05:56.796+02:00","legacy_named":false,"status":"active"},
+  "Fact Checker": {"persistent_name":"Fact Checker","universe":"descriptive","created_at":"2026-09-19T10:05:56.796+02:00","legacy_named":false,"status":"active"}
+}

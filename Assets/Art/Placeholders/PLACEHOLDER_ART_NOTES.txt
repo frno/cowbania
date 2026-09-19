@@ -1,0 +1,3 @@
+16x16 RGBA placeholder sprites. Import settings are point-filtered, no mipmaps, 16 pixels per unit.
+PlayerPlaceholder State parameter values: 0 Idle, 1 Run, 2 Jump, 3 Fall, 4 Shoot, 5 Reload, 6 Hurt.
+Assets are intentionally replaceable; swap clips or sprites without changing gameplay scripts.
