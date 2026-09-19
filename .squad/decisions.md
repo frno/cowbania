@@ -213,3 +213,14 @@
 - Snapshot-only presentation prevents host-side AI inference, and managed PCM parsing removes the observed native decode boundary while retaining fail-safe silence and durable diagnostics.
 - Removing the controlled fatal probe avoids disrupting routine launches and test flow without weakening production fatal handling.
 - Automated tests can verify deterministic and managed contracts, but cannot certify responsiveness across the packaged Windows desktop, input, graphics, and audio path.
+
+### 2026-09-19T18:57:37.992+02:00: Use a direct-to-main workflow during the prototype phase
+**By:** Fredrik Norum (via Copilot)
+
+**What:**
+- Work, commit, and push directly on `main`.
+- Do not create or push feature branches or pull requests unless explicitly requested.
+- Treat this as a temporary repository-specific policy until the maintainer restores a branch workflow.
+
+**Why:**
+- The remote repository is not yet carrying parallel development history, and the maintainer prefers a simpler workflow while the prototype is being established.
