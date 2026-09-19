@@ -1,6 +1,9 @@
 # Release 6 Frontier Visual Identity
 
-Original, locally generated pixel art for Cowbania's Dust-Gothic Frontier presentation. Run `python tools\generate_frontier_assets.py` from this directory (or invoke it by absolute path) to reproduce and validate the complete PNG pack.
+Locally generated pixel art for Cowbania's Dust-Gothic Frontier presentation.
+
+- **Non-player art (Bandit, Wildlife, Pickups, Terrain, Props, Effects, UI, Backgrounds)** is generated procedurally. Run `python tools\generate_frontier_assets.py` from this directory (or invoke it by absolute path) to reproduce and validate every non-player PNG.
+- **Player art** is produced by an AI-assisted pipeline (see [Player art pipeline](#player-art-pipeline) below). To regenerate the 26 player PNGs, run `python tools\nanogpt\pixelate_sprite.py` from the repository root.
 
 ## Stable asset contract
 
@@ -59,3 +62,30 @@ Lighting is upper-left. Foreground silhouettes use the dark plum outline and war
 - Currency is a diamond token, health is a heart, and ammo is a twin-cartridge box: pickup identity never depends on tint alone.
 - Notice, attack, hurt, dash, defeat, and collection use silhouette, pose, particles, or motion streaks as well as color.
 - Telegraph gold and damage red are accents only; their shapes remain legible in greyscale.
+
+## Player art pipeline
+
+The 26 player frames are not procedurally drawn. They are produced by a two-stage pipeline that combines AI-generated pose references with a deterministic downscale/quantize step, then dropped into `Assets/Art/Frontier/Player/{state}_{frame}.png` at the exact stable filenames listed in the [asset contract](#stable-asset-contract) table.
+
+**Stage 1 — AI pose generation** (`tools/nanogpt/generate_image.py`).
+
+- One "hero" idle reference is generated first as a right-facing side-profile character at ~1024x1024 (`tools/nanogpt/out/hero_idle_side.png`). This is the locked style + character anchor.
+- Seven per-state base poses (`hero_run.png`, `hero_jump.png`, `hero_fall.png`, `hero_shoot.png`, `hero_reload.png`, `hero_hurt.png`, `hero_dash.png`) are generated using the hero as `--reference` so hat, coat, bandana, gunbelt, boots, and proportions stay consistent across the sheet.
+- Every base pose is authored as a **right-facing side profile** (the renderer mirrors via `SpriteEffects.FlipHorizontally` for left-facing motion — see `RenderContext.Anchored`). Do not commit front-facing or 3/4 poses.
+
+**Stage 2 — Pixelate** (`tools/nanogpt/pixelate_sprite.py`).
+
+For every source pose the pipeline:
+
+1. Chroma-keys the AI's near-white background to transparent (the NanoGPT image API returns opaque-white backgrounds, not alpha=0).
+2. Trims to the character's bounding box.
+3. Downscales by height to `feet_anchor_y + 1` = 28 rows (premultiplied-alpha LANCZOS, so partially-transparent edges don't fringe blue/purple). Wide poses (run, dash, fall) overflow the 32-pixel canvas width horizontally and clip; that is the intended trade — keeping full readable body height is more valuable than including every strand of trailing coat.
+4. Snaps alpha to strictly `{0, 255}` and quantizes every opaque pixel to the 14-color Frontier palette (nearest-neighbor in RGB). This removes anti-aliased mid-tones and gives the flat pixel-art look that matches the Bandit/Wildlife/prop art already in-repo.
+5. Places the sprite on a 32x32 canvas so the midpoint of the bottom-band opaque pixels lands at feet anchor `(16, 27)`.
+6. Guarantees the feet anchor pixel is opaque; erases any opaque pixels below row 27 (would otherwise clip through the floor).
+
+**Frame derivation.** Only 8 AI calls are spent — one hero idle + one per non-idle state. The four idle frames come from the hero via 1-pixel breathing-bob shifts; the six run frames come from the run base via bob + leg-shift keyframes; the three shoot frames come from the shoot base with an added muzzle-flash stamp at effect anchor `(25, 15)` and a recoil offset on frame 2; reload frames cycle upper-body bobs; dash frames add horizontal speed streaks; hurt/jump/fall frames apply small pose offsets. To upgrade any frame past this derivation quality, drop a per-frame source at `tools/nanogpt/out/hero_{state}_{frame}.png` — the pipeline will prefer it over the derived variant.
+
+**Anchors are unchanged** from the procedural asset contract: source canvas 32x32, feet anchor source pixel `(16, 27)`, effect/muzzle anchor source pixel `(25, 15)`, rendered at integer 2x scale (64x64 on-screen), `SamplerState.PointClamp`, no filtering.
+
+`Assets/Art/Frontier/tools/generate_frontier_assets.py` still owns non-player art. Its `player()` function is retained as reference only and is no longer called by `generate()`; do not reintroduce it as the source of truth.

@@ -200,6 +200,25 @@ def _player_revolver(d, tip_x, tip_y, dir_x, dir_y=0, style="hold"):
 
 
 def player(frame, state):
+    """DEPRECATED — no longer authoritative.
+
+    Player art is now produced by the AI + pixelate pipeline in
+    ``tools/nanogpt/pixelate_sprite.py``, using AI-generated pose
+    references in ``tools/nanogpt/out/hero_*.png`` (see the "Player
+    art pipeline" section in ``Assets/Art/Frontier/manifest.md``).
+
+    This procedural implementation is retained only so ad-hoc PIL
+    experiments still import cleanly. The top-level ``generate()``
+    entry point below no longer calls it, and ``validate()`` still
+    checks the on-disk files produced by the pipeline. If you need to
+    regenerate player PNGs, run::
+
+        python tools/nanogpt/pixelate_sprite.py
+
+    Do NOT re-enable this function's call site: the previous
+    procedural output was rejected as unreadable at 32x32 during the
+    Release 6 art refresh.
+    """
     im = Image.new("RGBA", PLAYER_CANVAS, (0, 0, 0, 0))
     d = ImageDraw.Draw(im)
     cx = 16          # centerline column
@@ -589,10 +608,11 @@ def background(layer):
 
 
 def generate():
-    player_counts = {"idle": 4, "run": 6, "jump": 2, "fall": 2, "shoot": 3, "reload": 4, "hurt": 2, "dash": 3}
-    for state, count in player_counts.items():
-        for frame in range(count):
-            save(player(frame, state), f"Player/{state}_{frame}.png")
+    # Player art is produced by tools/nanogpt/pixelate_sprite.py (AI +
+    # pixelate pipeline). The procedural `player()` above is retained
+    # for reference only — its output was rejected at 32x32 during the
+    # Release 6 refresh. Do NOT re-enable it here. Re-render player
+    # frames with:  python tools/nanogpt/pixelate_sprite.py
     enemy_counts = {"patrol": 4, "notice": 2, "attack": 4, "defeated": 2}
     for state, count in enemy_counts.items():
         for frame in range(count):
