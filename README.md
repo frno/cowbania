@@ -40,32 +40,60 @@ The weapon architecture should anticipate ten future weapon slots, but only slot
 
 Mouse input is not supported.
 
-## Project structure
+## Architecture
 
-- `src/Cowbania.Core/` is the deterministic, engine-independent gameplay simulation.
-- `src/Cowbania.Host/` is the thin MonoGame desktop host and Frontier renderer.
-- `tests/Cowbania.Core.Tests/` is a dependency-free deterministic smoke-test executable.
-- `Assets/Art/Frontier/` contains the runtime PNG manifest copied beside the host executable; audio remains file-loaded without a Content Pipeline dependency.
+Dependencies flow one way: `Cowbania.Host` references `Cowbania.Core`; Core never references
+MonoGame, filesystem APIs, runtime services, or Host code. No dependency-injection container,
+mediator/event framework, generic `Utils` layer, or additional package is used.
 
-The host uses `MonoGame.Framework.DesktopGL` 3.8.2.1105. MonoGame is referenced as a NuGet
-package so the repository builds from the command line without Unity or an editor install.
-Frontier sprites are rendered with `SamplerState.PointClamp` at integer scale without filtering.
+`src/Cowbania.Core/` is organized by feature and responsibility:
 
-## Release 1 animation architecture
+- `Gameplay/GameWorld.cs` is the public simulation root. `GameWorld.Update` is the single ordered
+  deterministic orchestration boundary; mutable simulation data lives in its internal
+  `GameWorldState`.
+- `Gameplay/Input`, `Player`, `Combat`, `Enemies`, and `Pickups` contain their public contracts and
+  concrete internal systems.
+- `Gameplay/World` contains room/progression contracts and `RoomCatalog`;
+  `Gameplay/World/Geometry` contains geometry and collision queries.
+- `Presentation/Animation` contains engine-neutral clips, clocks, and the Frontier catalog.
+  `Presentation/Player`, `Enemies`, and `Pickups` contain feature-specific presentation contracts
+  and selectors. Presentation state never becomes simulation authority.
+- `Diagnostics` contains engine-independent diagnostic formatting.
 
-`Cowbania.Core.Animation` contains engine-neutral `AnimationClip` and `AnimationClock`
-primitives. Clips explicitly select loop or one-shot playback, while clocks advance only from
-elapsed seconds and hold the final frame when a one-shot completes. `PresentationStateSelector`
-maps gameplay presentation inputs to player idle/run/jump/fall/shoot/reload/hurt/dash states and
-also exposes enemy and pickup states. `FrontierAnimationCatalog` maps those states and typed enemy
-and pickup snapshots to the current Frontier PNG frame names.
+`RoomCatalog` is the sole authority for room bounds, solids, transitions, spawns, checkpoints,
+shortcuts, enemy definitions, and pickups. Core systems and Host rendering consume this shared
+catalog rather than duplicating coordinates.
 
-The MonoGame host caches every required Frontier frame once during `LoadContent`, advances one clock
-per visible actor (and one for pickups), and draws the selected frame with `PointClamp`. Actor
-feet use the authored source anchor `(8,13)`, effects use catalogued anchors, and horizontal facing
-uses sprite flips. This keeps
-animation presentation separate from collision geometry and avoids engine/runtime dependencies in
-the core library.
+`src/Cowbania.Host/` is the MonoGame composition and runtime layer:
+
+- `Application/Program.cs` installs diagnostics, establishes the executable working directory,
+  creates `CowbaniaGame`, runs it, reports fatal failures, and flushes logging on exit.
+- `Application/CowbaniaGame.cs` owns the MonoGame lifecycle. Its constructor configures the window
+  and lifecycle logging; `LoadContent` composes assets, audio, input, update coordination,
+  presentation, camera, and rendering; `Update` delegates one elapsed-time step to
+  `GameUpdateCoordinator`; `Draw` renders the current Core state.
+- `Input`, `Audio`, `Diagnostics`, and `Presentation` contain concrete host services. Host feedback
+  consumes Core snapshots and transitions but cannot mutate or replace gameplay authority.
+
+`tests/Cowbania.Core.Tests/` and `tests/Cowbania.Host.Tests/` are dependency-free executable
+regression suites. `Assets/Art/Frontier/` contains the runtime PNG manifest copied beside the host
+executable; audio remains file-loaded without a Content Pipeline dependency.
+
+The host uses `MonoGame.Framework.DesktopGL` 3.8.2.1105. MonoGame is referenced as a NuGet package
+so the repository builds from the command line without Unity or an editor install. Frontier
+sprites are rendered with `SamplerState.PointClamp` at integer scale without filtering.
+
+## Animation architecture
+
+`Cowbania.Core.Presentation.Animation` contains engine-neutral `AnimationClip`, `AnimationClock`,
+`PresentationAnimationClock`, and `FrontierAnimationCatalog` types. Clips explicitly select loop or
+one-shot playback, while clocks advance only from elapsed seconds and hold the final frame when a
+one-shot completes. Feature selectors under `Cowbania.Core.Presentation.Player`, `.Enemies`, and
+`.Pickups` map typed simulation snapshots or presentation inputs to animation states.
+
+The MonoGame host caches required Frontier frames during `LoadContent`, advances presentation
+clocks for visible actors and pickups, and draws selected frames with `PointClamp`. Actor feet use
+authored source anchors, effects use catalogued anchors, and horizontal facing uses sprite flips.
 
 ## Release 2 stage presentation
 
@@ -79,9 +107,10 @@ performant without allocating textures every frame.
 
 Gameplay uses screen-space coordinates: +X points right and +Y points down. `GameWorld.PlayerPosition`
 is the player's feet/contact point, not the sprite centre; jump velocity is negative Y and gravity is
-positive Y. Shared immutable hub and branch definitions live in `Cowbania.Core.RoomCatalog`. Their
-room bounds, ground, raised platforms, spawns, checkpoint, shortcut, enemy, and pickup anchors are
-consumed by both collision and the MonoGame renderer. The host must not duplicate stage coordinates.
+positive Y. Shared immutable hub and branch definitions live in
+`Cowbania.Core.Gameplay.World.RoomCatalog`. Their room bounds, ground, raised platforms, spawns,
+checkpoint, shortcut, enemy, and pickup anchors are consumed by both collision and the MonoGame
+renderer. The host must not duplicate stage coordinates.
 Actor sprites are drawn from a source-space origin at the visible bottom-center of the
 16x16 placeholders (x=8, y=13), so transparent source padding does not make actors float
 above their collision support point. Projectiles originate 24 pixels above the player feet

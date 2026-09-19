@@ -1,18 +1,18 @@
 using System.Collections.Concurrent;
-using Cowbania.Core;
 using log4net;
 using log4net.Appender;
 using log4net.Config;
 using log4net.Layout;
 using log4net.Repository.Hierarchy;
 
+namespace Cowbania.Host.Diagnostics;
+
 internal static class RuntimeLog
 {
     public static readonly string LogPath = Path.Combine(AppContext.BaseDirectory, "Cowbania.Host.log");
-
-    private static ILog? logger;
-    private static readonly ConcurrentDictionary<Exception, byte> reportedFatalExceptions =
+    private static readonly ConcurrentDictionary<Exception, byte> ReportedFatalExceptions =
         new(ReferenceEqualityComparer.Instance);
+    private static ILog? logger;
 
     public static Exception? InitializationError { get; private set; }
     public static bool IsInitialized => logger is not null;
@@ -26,7 +26,6 @@ internal static class RuntimeLog
                 ConversionPattern = "%date{ISO8601} %-5level [thread:%thread] %message%newline"
             };
             layout.ActivateOptions();
-
             var appender = new RollingFileAppender
             {
                 File = LogPath,
@@ -40,7 +39,6 @@ internal static class RuntimeLog
                 Layout = layout
             };
             appender.ActivateOptions();
-
             var repository = (Hierarchy)LogManager.GetRepository();
             repository.Root.Level = log4net.Core.Level.Info;
             BasicConfigurator.Configure(repository, appender);
@@ -59,23 +57,18 @@ internal static class RuntimeLog
     public static void Info(string message) => SafeWrite(log => log.Info(message));
     public static void Warn(string message) => SafeWrite(log => log.Warn(message));
     public static void Error(string message, Exception exception) => SafeWrite(log => log.Error(message, exception));
-    public static void Fatal(string message, Exception exception) => SafeWrite(log => log.Fatal(message, exception));
 
     public static void ReportProcessException(string source, object? exceptionObject, bool isTerminating)
     {
         var details = FatalExceptionFormatter.Format(source, exceptionObject, isTerminating);
         if (exceptionObject is Exception exception)
         {
-            if (!reportedFatalExceptions.TryAdd(exception, 0))
+            if (!ReportedFatalExceptions.TryAdd(exception, 0))
                 return;
-
             SafeWrite(log => log.Fatal(details, exception));
         }
         else
-        {
             SafeWrite(log => log.Fatal(details));
-        }
-
         StartupDiagnostics.RecordFatal(details);
         Console.Error.WriteLine(details);
         Flush();
@@ -83,14 +76,8 @@ internal static class RuntimeLog
 
     public static void Flush()
     {
-        try
-        {
-            LogManager.Flush(2000);
-        }
-        catch (Exception exception)
-        {
-            Console.Error.WriteLine($"Cowbania logging flush failed: {exception}");
-        }
+        try { LogManager.Flush(2000); }
+        catch (Exception exception) { Console.Error.WriteLine($"Cowbania logging flush failed: {exception}"); }
     }
 
     public static void Shutdown()
@@ -111,13 +98,11 @@ internal static class RuntimeLog
     {
         try
         {
-            if (logger is not null)
-                write(logger);
+            if (logger is not null) write(logger);
         }
         catch (Exception exception)
         {
             Console.Error.WriteLine($"Cowbania logging write failed: {exception.Message}");
         }
     }
-
 }

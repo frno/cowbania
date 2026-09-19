@@ -1,4 +1,4 @@
-namespace Cowbania.Core;
+namespace Cowbania.Core.Diagnostics;
 
 public static class FatalExceptionFormatter
 {

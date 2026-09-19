@@ -224,3 +224,18 @@
 
 **Why:**
 - The remote repository is not yet carrying parallel development history, and the maintainer prefers a simpler workflow while the prototype is being established.
+
+### 2026-09-19T19:28:05.486+02:00: Organize production and tests by feature namespace
+**By:** Fredrik Norum (via Copilot)
+
+**What:**
+- Organize `Cowbania.Core`, `Cowbania.Host`, and both test projects into cohesive feature folders and namespaces.
+- Keep `GameWorld` as the deterministic orchestration boundary and `CowbaniaGame` as MonoGame lifecycle/composition only.
+- Keep the Host dependency graph one-way: Application composes lower-level feature services; feature namespaces never depend on Application.
+- Keep `RoomCatalog` as the sole authority for room geometry and placements.
+- Do not introduce generic `Common`, `Helpers`, or `Utils` buckets, DI containers, mediator frameworks, or speculative abstractions.
+- Keep normal production files below 300 lines where practical and require explicit justification above 400 lines.
+
+**Why:**
+- The previous monolithic files mixed simulation, presentation, rendering, audio, diagnostics, and tests, making feature ownership and dependency direction unclear.
+- Feature namespaces make related behavior discoverable while preserving deterministic gameplay and the lightweight dependency-free architecture.

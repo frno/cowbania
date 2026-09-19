@@ -1,0 +1,12 @@
+global using Cowbania.Core.Diagnostics;
+global using Cowbania.Core.Gameplay;
+global using Cowbania.Core.Gameplay.Combat;
+global using Cowbania.Core.Gameplay.Enemies;
+global using Cowbania.Core.Gameplay.Input;
+global using Cowbania.Core.Gameplay.Pickups;
+global using Cowbania.Core.Gameplay.Player;
+global using Cowbania.Core.Gameplay.World;
+global using Cowbania.Core.Gameplay.World.Geometry;
+global using Cowbania.Core.Presentation.Animation;
+global using Cowbania.Core.Presentation.Enemies;
+global using Cowbania.Core.Presentation.Player;

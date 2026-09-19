@@ -1,0 +1,88 @@
+namespace Cowbania.Core.Tests.Harness;
+
+internal static class TestInventory
+{
+    public static readonly string[] ExpectedNames =
+    [
+        "animation clocks loop and complete one-shot clips deterministically",
+        "presentation selector prioritizes transient and locomotion states",
+        "enemy presentation selects readable deterministic telegraphs",
+        "enemy presentation clocks reset when the selected state changes",
+        "player animation selector covers idle run jump fall shoot reload hurt and dash",
+        "presentation snapshots preserve feet facing and muzzle anchors",
+        "revolver reload duration is four firing cadences",
+        "manual reload refills a partially spent cylinder",
+        "sixth accepted shot starts automatic reload immediately",
+        "automatic reload blocks firing and refills exactly once",
+        "held fire shoots on the update that reload completes",
+        "player shot acceptance signal is per-update and deterministic",
+        "horizontal movement remains grounded and advances the player deterministically",
+        "jump uses screen-space signs and lands on a raised platform",
+        "jump moves upward immediately in screen space",
+        "jump diagnostics distinguish rejected requests",
+        "fatal exception formatting preserves source, termination, and full details",
+        "gravity returns the player to a valid support surface",
+        "grounded state is derived from collision geometry",
+        "player lands on a raised platform",
+        "hub and branch expose distinct stage geometry",
+        "room visual selection remains keyed by RoomCatalog ids",
+        "catalog surfaces provide the renderer's collision-aligned stage contract",
+        "stage presentation keeps RoomCatalog metadata unchanged",
+        "presentation-facing updates do not mutate collision authority",
+        "equivalent stage runs produce deterministic gameplay state",
+        "room definitions expose multiple enemy placements",
+        "game world creates enemies at the current room placements",
+        "enemy definitions assign stable bandit and wildlife encounters",
+        "enemy snapshots expose deterministic notice and chase state",
+        "bandit attack telegraphs then emits one hostile projectile",
+        "wildlife lunge damage occurs once during active attack",
+        "room re-entry resets the encounter and clears every projectile",
+        "release five attack timelines remain deterministic",
+        "hostile projectiles damage once and respect player invulnerability",
+        "enemy movement remains inside authored room and leash bounds",
+        "defeated enemies remain inert",
+        "lethal hostile damage restores the authored encounter",
+        "completion freezes active encounters and hostile projectiles",
+        "projectile damage affects the intended enemy without damaging its sibling",
+        "spawn checkpoint and shortcut positions are supported by room geometry",
+        "player feet remain exactly on the supporting surface when grounded",
+        "projectile direction remains tied to the current aim direction",
+        "horizontal movement updates facing used by horizontal shots",
+        "horizontal movement updates facing and neutral fire direction",
+        "explicit vertical and diagonal aim override facing without losing horizontal facing",
+        "projectile spawn is above the player's feet at gun height",
+        "movement advances by elapsed seconds rather than update-call count",
+        "dash duration is measured in elapsed seconds",
+        "feet, facing, and muzzle contracts survive elapsed-time updates",
+        "looping animation clips advance deterministically and wrap",
+        "one-shot animation clips clamp on completion",
+        "animation clocks advance by elapsed seconds including large deltas",
+        "frontier player animation states preserve the stable contract",
+        "frontier player clips map every authored frame and timing",
+        "frontier actor metadata preserves feet and effect anchors",
+        "frontier enemy clips map both archetypes without inference",
+        "frontier pickup clips cover currency health and ammo",
+        "frontier clocks freeze externally and equivalent progression matches",
+        "wildlife active contact deals one hit and invulnerability blocks repeat damage",
+        "paused updates preserve the complete deterministic world snapshot",
+        "slot one selection is idempotent and slots two through ten are unavailable",
+        "typed pickups are single-use and reserve ammo is cylinder-independent",
+        "grounded horizontal contact collects pickups at but not beyond the radius",
+        "runtime pickups economy shortcut and checkpoint survive death but not a new world",
+        "checkpoint and respawn restore room context and spawn point",
+        "shortcut return establishes a coherent hub checkpoint for later death",
+        "hub objective completion requires interaction within 42 units of the shortcut",
+        "shortcut unlock and hub return complete the first-slice objective",
+    ];
+
+    public static void Validate(IReadOnlyList<TestCase> cases)
+    {
+        AssertEx.Equal(ExpectedNames.Length, cases.Count, "registered test count");
+        AssertEx.Equal(ExpectedNames.Length, cases.Select(test => test.Name).Distinct(StringComparer.Ordinal).Count(),
+            "registered test names must be unique");
+        AssertEx.SequenceEqual(
+            ExpectedNames.Order(StringComparer.Ordinal),
+            cases.Select(test => test.Name).Order(StringComparer.Ordinal),
+            "registered test inventory");
+    }
+}

@@ -1,6 +1,6 @@
 ---
 name: "cowbania-deterministic-monogame"
-description: "Use for normal Cowbania gameplay/Core or Host implementation, including input, collision, rooms, animation, rendering, assets, audio, diagnostics, and matching behavior/API tests. This is the general Cowbania coding skill; do not load it for repository administration or test-harness-only maintenance."
+description: "Use when implementing or refactoring Cowbania.Core simulation behavior or its MonoGame Host integration. Do not load for repository administration, documentation-only work, or test-harness-only maintenance."
 domain: "gameplay"
 confidence: "high"
 source: "project-architecture"
@@ -10,12 +10,17 @@ source: "project-architecture"
 
 Preserve Cowbania's deterministic simulation/presentation boundary during normal implementation work.
 
-## Ownership boundaries
+## Architecture guardrails
 
-- `Cowbania.Core` owns deterministic, engine-independent simulation. Keep gameplay state, rules, timers, collision, transitions, and snapshot production free of MonoGame/runtime dependencies.
-- `Cowbania.Host` owns MonoGame input mapping, snapshot-driven rendering, assets, audio, and diagnostics. Host feedback must not become simulation authority.
-- `RoomCatalog` is the sole authority for room bounds, solids, transitions, spawns, checkpoints, shortcuts, enemies, and pickups.
+- Dependencies flow one way: `Cowbania.Host` references `Cowbania.Core`; Core remains free of MonoGame, filesystem, and runtime-service dependencies.
+- `Cowbania.Core.Gameplay.GameWorld.Update` is the single ordered deterministic orchestration boundary. Authoritative mutable simulation state stays in `GameWorld` or its internal state.
+- Core is feature-oriented under `Gameplay`, `Presentation`, and `Diagnostics`; keep contracts and concrete systems in their owning feature namespace.
+- `CowbaniaGame` owns MonoGame lifecycle and composition. Host input, audio, diagnostics, presentation, camera, and rendering remain concrete runtime services.
+- `RoomCatalog` is the sole authority for geometry, transitions, spawns, checkpoints, shortcuts, enemies, and pickups.
 - Presentation consumes snapshots and catalog metadata; it must never mutate or duplicate simulation geometry or infer authoritative gameplay state.
+- Do not introduce generic `Common`/`Helpers`/`Utils`, dependency injection, mediator/event frameworks, interfaces without substitution, or new dependencies.
+
+See [README.md](../../../README.md#architecture) for the current folder and namespace map.
 
 ## Change rules
 
@@ -37,4 +42,6 @@ dotnet run --project tests\Cowbania.Host.Tests --no-restore
 dotnet build Cowbania.sln --no-restore
 ```
 
-Use [README.md](../../../README.md) for architecture and runtime context and [QA/FirstPlayableSliceChecklist.md](../../../QA/FirstPlayableSliceChecklist.md) for detailed automated and manual acceptance criteria.
+Use [README.md](../../../README.md) for runtime context and
+[QA/FirstPlayableSliceChecklist.md](../../../QA/FirstPlayableSliceChecklist.md) for detailed
+automated and manual acceptance criteria.
