@@ -235,6 +235,44 @@ captures what broke and what worked during the first end-to-end run (player spri
     Directive: "colors need to reflect what's foreground and what the player can interact with."
     Any bg palette change requires re-review of `_boost_readability`'s mapping constants.
 
+13. **Smaller-canvas actors (16×16) need a different pipeline profile.** The 32×32 player
+    pipeline does not port straight to 16×16 non-player actors (Bandit, Wildlife). Lessons
+    from `tools/nanogpt/pixelate_enemy.py`:
+
+    - **`_fit_into_canvas` from `pixelate_sprite` is height-first — it will overflow width
+      for horizontal subjects (the wildlife quadruped is ~1.7× wider than tall). Use a
+      *contain* fit instead: `scale = min(canvas_w / w, canvas_h / h)`.** Both tall (bandit)
+      and wide (wildlife) subjects then land inside the 16-pixel bounds.
+    - **Drop `TARGET_COLORS_PER_FRAME` from 6 → 4.** 16×16 = 256 pixels total; more than
+      ~4 dominant colors reintroduces the per-pixel speckle look. Hand-authored Frontier
+      enemies also sat at ~4-5 colors.
+    - **The `_leg_shift` walk-cycle derivation doesn't apply below ~24 pixels tall.** The
+      "legs" downsample to 1-column-wide features and split-shifting disconnects the feet
+      from the torso. Use a whole-sprite bob-cycle instead (`_shift(base, 0, dy)` with
+      `dy ∈ {0, -1}`) — still reads as a walk animation without introducing stray
+      components.
+    - **Add a component-bridging post-process.** Even without leg-shift, an AI source with
+      thin legs will occasionally downsample into torso-component + feet-component with a
+      1-2 row gap that the feet-anchor guarantee can't span (its 1-pixel column bridge
+      hits an already-opaque feet cell and stops). Implement `_ensure_single_component`:
+      after the pipeline runs, if 8-connected components > 1, draw a 1-pixel Manhattan
+      bridge from the smaller component to the nearest main-component cell in the sprite's
+      own dominant color. Run this only on the base processed source; intentional stamps
+      (notice glyphs, muzzle flashes, dust puffs, lunge streaks) are added AFTER and are
+      allowed to remain disconnected — that's how they read as accents rather than shading.
+    - **Feet-anchor bridge budget shrinks to ~4 rows on 16×16** (from 5 on 32×32) — a
+      5-pixel bridge on a 16-pixel canvas is nearly half the sprite.
+    - **Notice indicator glyphs may not fit above the head at 16×16.** For a full-height
+      subject (bandit fills all 16 rows), the `!` glyph anchored at `(8, 2)` lands *inside*
+      the head silhouette. It still reads as a brief gold flash there — acceptable — but
+      subjects with room above the head (wildlife's low quadruped) get a much more legible
+      standalone indicator.
+    - **Shared style/palette prompt language ports directly.** The cowboy `STYLE` and
+      `BACKGROUND` blocks (flat colors, no gradients, no AA, hard outlines, transparent bg,
+      no scenery/text) work verbatim for enemy prompts. What must change per-actor is the
+      `CHARACTER` block (silhouette / body plan / palette accents to keep enemies distinct
+      from the player and from each other).
+
 ## Workflow
 
 1. Generate ONE locked reference pose (the most neutral/idle pose, right-facing, isolated,
