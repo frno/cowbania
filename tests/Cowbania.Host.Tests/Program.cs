@@ -387,9 +387,56 @@ static class Tests
             var update = MethodBody(
                 ReadSource(FindRepositoryRoot(), "src", "Cowbania.Host", "CowbaniaGame.cs"),
                 "Update");
-            Assert(update.Contains("var acceptedPlayerShot = world.Ammo < previousAmmo", StringComparison.Ordinal) &&
+            Assert(update.Contains("var acceptedPlayerShot = world.PlayerShotAcceptedThisUpdate", StringComparison.Ordinal) &&
+                   update.Contains("if (acceptedPlayerShot) audioBus.Play(AudioEvent.Shooting)", StringComparison.Ordinal) &&
                    update.Contains("PlayerAnimationRestart.ShouldReset", StringComparison.Ordinal),
-                "the restart decision must be driven by the deterministic ammo decrement");
+                "shooting audio and animation restart must consume the deterministic core signal");
+        });
+
+        Run("reload-completion shot signal drives host feedback despite ammo increase", () =>
+        {
+            var game = new GameWorld();
+            for (var shot = 0; shot < 6; shot++)
+            {
+                game.Update(new InputFrame(
+                        0, false, false, System.Numerics.Vector2.UnitX, true, false, false, false),
+                    shot == 0 ? 0f : GameWorld.FireDelay);
+            }
+
+            game.Update(new InputFrame(
+                    0, false, false, System.Numerics.Vector2.UnitX, true, false, false, false),
+                GameWorld.ReloadDuration - GameWorld.FireDelay);
+
+            Assert(game.Ammo == 5 && game.PlayerShotAcceptedThisUpdate,
+                "core exposes the accepted shot when reload completion raises ammo from empty to five");
+            Assert(PlayerAnimationRestart.ShouldReset(
+                    PresentationAnimationState.Shoot,
+                    PresentationAnimationState.Shoot,
+                    game.PlayerShotAcceptedThisUpdate),
+                "the host restarts Shoot from the explicit signal even when Shoot is already selected");
+        });
+
+        Run("reload gameplay and presentation complete on the same update", () =>
+        {
+            const float startingUpdateSeconds = 0.08f;
+            var game = new GameWorld();
+            var reloadAnimation = FrontierAnimationCatalog.For(PresentationAnimationState.Reload);
+            var animationClock = new AnimationClock();
+
+            game.Update(new InputFrame(0, false, false, System.Numerics.Vector2.UnitX, true, false, false, false), 0f);
+            game.Update(new InputFrame(0, false, false, System.Numerics.Vector2.UnitX, false, true, false, false),
+                startingUpdateSeconds);
+            animationClock.Advance(startingUpdateSeconds, reloadAnimation);
+
+            Assert(game.IsReloading && !animationClock.IsComplete,
+                "a reload begun on a nonzero update remains active in gameplay and presentation");
+
+            var completingUpdateSeconds = GameWorld.ReloadDuration - startingUpdateSeconds + 0.0001f;
+            game.Update(default, completingUpdateSeconds);
+            animationClock.Advance(completingUpdateSeconds, reloadAnimation);
+
+            Assert(!game.IsReloading && game.Ammo == 6 && animationClock.IsComplete,
+                "gameplay refill and the Frontier reload one-shot complete on the same update");
         });
 
         Run("defeat effects play three frames once and stop", () =>

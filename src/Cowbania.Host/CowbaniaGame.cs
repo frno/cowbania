@@ -158,7 +158,6 @@ internal sealed class CowbaniaGame : Game
             Pressed(keyboard, Keys.R), Pressed(keyboard, Keys.E), Pressed(keyboard, Keys.Escape),
             Pressed(keyboard, Keys.D1));
         var dt = (float)gameTime.ElapsedGameTime.TotalSeconds;
-        var previousAmmo = world.Ammo;
         var previousHealth = world.Health;
         var previousPickupCount = world.CollectedPickupCount;
         var previousReloading = world.IsReloading;
@@ -204,7 +203,7 @@ internal sealed class CowbaniaGame : Game
         var simulationActive = !world.IsPaused && !world.Completed;
         if (simulationActive)
         {
-            var acceptedPlayerShot = world.Ammo < previousAmmo;
+            var acceptedPlayerShot = world.PlayerShotAcceptedThisUpdate;
             if (world.LastJumpRequestOutcome == JumpRequestOutcome.Accepted)
             {
                 RuntimeLog.Info($"jump audio dispatch frame={updateFrameCount} room={world.Room}");

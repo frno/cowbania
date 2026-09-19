@@ -191,7 +191,7 @@ public sealed class GameWorld
     public const float DashSpeed = 720f;
     public const float DashDuration = 0.18f;
     public const float FireDelay = 0.14f;
-    public const float ReloadDuration = 1.15f;
+    public const float ReloadDuration = FireDelay * 4;
     public const float Gravity = 1680f;
     public const float InteractionRadius = 42f;
     public const float PickupRadius = 32f;
@@ -232,6 +232,7 @@ public sealed class GameWorld
     public int SelectedWeaponSlot { get; private set; } = 1;
     public int CollectedPickupCount => collectedPickupIds.Count;
     public JumpRequestOutcome LastJumpRequestOutcome { get; private set; }
+    public bool PlayerShotAcceptedThisUpdate { get; private set; }
     public bool IsReloading => reloadTimer > 0;
     public bool IsDashing => dashTimer > 0;
     public bool IsGrounded => CurrentRoom.Solids.Any(s =>
@@ -274,6 +275,7 @@ public sealed class GameWorld
 
     public void Update(InputFrame input, float elapsedSeconds)
     {
+        PlayerShotAcceptedThisUpdate = false;
         LastJumpRequestOutcome = JumpRequestOutcome.None;
         if (!Completed && input.PausePressed) IsPaused = !IsPaused;
         if (IsPaused)
@@ -317,12 +319,18 @@ public sealed class GameWorld
             }
         }
         if (input.DashPressed && dashCooldown <= 0 && dashTimer <= 0) { dashTimer = DashDuration; dashCooldown = 0.35f; }
-        if (input.ReloadPressed && Ammo < 6 && reloadTimer <= 0) reloadTimer = ReloadDuration;
-        if (reloadTimer > 0) { reloadTimer -= elapsedSeconds; if (reloadTimer <= 0) Ammo = 6; }
+        if (reloadTimer > 0)
+        {
+            reloadTimer = MathF.Max(0, reloadTimer - elapsedSeconds);
+            if (reloadTimer == 0) Ammo = 6;
+        }
+        if (input.ReloadPressed && Ammo < 6 && reloadTimer <= 0) BeginReload(elapsedSeconds);
         if (input.FireHeld && !IsReloading && Ammo > 0 && fireTimer <= 0)
         {
             Ammo--; fireTimer = FireDelay;
             projectiles.Add(new(PlayerPosition + PlayerMuzzleOffset + AimDirection * PlayerMuzzleDistance, AimDirection * 720, 1));
+            PlayerShotAcceptedThisUpdate = true;
+            if (Ammo == 0) BeginReload(elapsedSeconds);
         }
 
         var speed = dashTimer > 0 ? DashSpeed : PlayerSpeed;
@@ -340,6 +348,13 @@ public sealed class GameWorld
             return;
         CollectPickups();
         if (input.InteractPressed) Interact();
+    }
+
+    private void BeginReload(float elapsedSeconds)
+    {
+        reloadTimer = MathF.Max(0, ReloadDuration - elapsedSeconds);
+        if (reloadTimer == 0)
+            Ammo = 6;
     }
 
     private void CollectPickups()

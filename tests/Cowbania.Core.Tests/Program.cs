@@ -110,37 +110,124 @@ static class Tests
             Assert(snapshot.FacingDirection == -1, "snapshot preserves horizontal facing");
         });
 
-        Run("fire and reload honor the fixed six-round cylinder", () =>
+        Run("revolver reload duration is four firing cadences", () =>
+        {
+            Assert(MathF.Abs(GameWorld.ReloadDuration - 0.56f) < 0.0001f,
+                "reload takes 0.56 seconds, exactly four 0.14-second firing cadences");
+        });
+
+        Run("manual reload refills a partially spent cylinder", () =>
         {
             var game = new GameWorld();
-            // Isolate cylinder accounting from projectile collision/removal.
+            game.Update(new InputFrame(0, false, false, Vector2.UnitX, true, false, false, false), 0f);
+
+            game.Update(new InputFrame(0, false, false, Vector2.UnitX, false, true, false, false), 0f);
+
+            Assert(game.Ammo == 5 && game.IsReloading,
+                "manual reload begins immediately for a partially spent cylinder");
+            Assert(MathF.Abs(GetField<float>(game, "reloadTimer") - GameWorld.ReloadDuration) < 0.0001f,
+                "a zero-duration update leaves the full authoritative reload duration");
+
+            game.Update(default, GameWorld.ReloadDuration);
+
+            Assert(game.Ammo == 6 && !game.IsReloading,
+                "manual reload refills exactly to six when its timer completes");
+        });
+
+        Run("sixth accepted shot starts automatic reload immediately", () =>
+        {
+            var game = new GameWorld();
             SetProperty(game, nameof(GameWorld.Enemy), new EnemyState(new Vector2(470, 480), 0, false));
 
             for (var i = 0; i < 6; i++)
             {
-                game.Update(new InputFrame(0, false, false, Vector2.UnitX, true, false, false, false), 0.2f);
+                game.Update(new InputFrame(0, false, false, Vector2.UnitX, true, false, false, false),
+                    i == 0 ? 0f : GameWorld.FireDelay);
             }
 
             Assert(game.Ammo == 0, "six accepted shots consume the full cylinder");
             Assert(game.Projectiles.Count == 6, "each accepted shot spawns one projectile");
             Assert(game.Projectiles.All(projectile => projectile.Position.Y == 456), "projectiles spawn from the elevated gun muzzle");
-
-            game.Update(new InputFrame(0, false, false, Vector2.UnitX, false, true, false, false), 0.1f);
-            game.Update(new InputFrame(0, false, false, Vector2.UnitX, false, false, false, false), 1.2f);
-
-            Assert(game.Ammo == 6, "reload restores the cylinder to six rounds");
-            Assert(game.IsReloading == false, "reload completes without leaving gun reloading active");
+            Assert(game.PlayerShotAcceptedThisUpdate,
+                "the sixth accepted shot reports acceptance on its update");
+            Assert(game.IsReloading, "the sixth accepted shot starts reload without another input frame");
+            Assert(MathF.Abs(GetField<float>(game, "reloadTimer") -
+                             (GameWorld.ReloadDuration - GameWorld.FireDelay)) < 0.0001f,
+                "automatic reload consumes the same accepted-shot update time as presentation");
         });
 
-        Run("projectiles spawn at the player's gun muzzle", () =>
+        Run("automatic reload blocks firing and refills exactly once", () =>
+        {
+            var game = new GameWorld();
+            SetProperty(game, nameof(GameWorld.Ammo), 1);
+
+            game.Update(new InputFrame(0, false, false, Vector2.UnitX, true, false, false, false), 0f);
+            var projectileCount = game.Projectiles.Count;
+            game.Update(new InputFrame(0, false, false, Vector2.UnitX, true, false, false, false),
+                GameWorld.ReloadDuration / 2);
+
+            Assert(game.Ammo == 0 && game.IsReloading,
+                "the cylinder remains empty before the authoritative reload timer completes");
+            Assert(game.Projectiles.Count == projectileCount,
+                "firing remains blocked while automatic reload is active");
+            Assert(!game.PlayerShotAcceptedThisUpdate,
+                "held fire reports no accepted shot while reload blocks firing");
+
+            game.Update(default, GameWorld.ReloadDuration / 2 + 0.01f);
+
+            Assert(game.Ammo == 6 && !game.IsReloading,
+                "reload overshoot clamps cleanly and refills the cylinder exactly to six");
+            Assert(!game.PlayerShotAcceptedThisUpdate,
+                "a refill-only update does not report a player shot");
+            Assert(GetField<float>(game, "reloadTimer") == 0,
+                "the completed reload timer is clamped to zero");
+
+            game.Update(default, GameWorld.ReloadDuration);
+            Assert(game.Ammo == 6 && !game.IsReloading,
+                "completed reload does not refill again or restart without input");
+        });
+
+        Run("held fire shoots on the update that reload completes", () =>
+        {
+            var game = new GameWorld();
+            SetProperty(game, nameof(GameWorld.Ammo), 1);
+            SetProperty(game, nameof(GameWorld.Enemy), new EnemyState(new Vector2(470, 480), 0, false));
+            game.Update(new InputFrame(0, false, false, Vector2.UnitX, false, true, false, false), 0f);
+
+            game.Update(new InputFrame(0, false, false, Vector2.UnitX, true, false, false, false),
+                GameWorld.ReloadDuration + 0.01f);
+
+            Assert(game.Ammo == 5 && !game.IsReloading,
+                "reload completion refills then accepts held fire without a delayed frame");
+            Assert(game.Projectiles.Count == 1,
+                "immediate post-completion fire creates exactly one projectile");
+            Assert(game.PlayerShotAcceptedThisUpdate,
+                "reload completion reports the accepted held-fire shot despite the net ammo increase");
+        });
+
+        Run("player shot acceptance signal is per-update and deterministic", () =>
         {
             var game = new GameWorld();
             game.Update(new InputFrame(0, false, false, Vector2.UnitX, true, false, false, false), 0);
 
             Assert(game.Projectiles.Count == 1, "firing creates one projectile");
+            Assert(game.PlayerShotAcceptedThisUpdate, "an ordinary accepted shot sets the per-update signal");
             Assert(game.Projectiles[0].Position ==
                 game.PlayerPosition + GameWorld.PlayerMuzzleOffset + Vector2.UnitX * GameWorld.PlayerMuzzleDistance,
                 "projectile starts at the gun muzzle");
+
+            game.Update(default, 0);
+            Assert(!game.PlayerShotAcceptedThisUpdate,
+                "the signal resets at the beginning of the next non-shot update");
+
+            game.Update(new InputFrame(0, false, false, Vector2.UnitX, true, false, false, false), 0);
+            Assert(!game.PlayerShotAcceptedThisUpdate,
+                "fire-cadence blocking leaves the signal false");
+
+            game.Update(new InputFrame(0, false, false, Vector2.UnitX, false, false, false, true), 0);
+            game.Update(new InputFrame(0, false, false, Vector2.UnitX, true, false, false, false), GameWorld.FireDelay);
+            Assert(!game.PlayerShotAcceptedThisUpdate,
+                "paused updates reset and leave the signal false");
         });
 
         Run("horizontal movement remains grounded and advances the player deterministically", () =>
