@@ -180,3 +180,16 @@
 **Why:** A stall after several seconds needs a durable last-known lifecycle location without per-frame noise. Independent early startup output ensures a log4net initialization failure remains explicit and non-fatal.
 
 **Validation:** Build and deterministic smoke validation passed. A seven-second host probe stayed alive and logged heartbeats through 6.8 seconds; Marshal approved the logging integration.
+### 2026-09-19T17:48:12.105+02:00: Consolidated fatal logging and exception-boundary diagnostics
+**By:** gameplay-systems, monogame-runtime, runtime-diagnostics
+
+**What:**
+- Fatal reporting deduplicates only identical exception object references, explicitly expands aggregate inner exceptions, flushes both durable sink paths before fatal propagation, and preserves unobserved-task failure observation semantics.
+- The MonoGame host logs Space jump requests with deterministic core outcomes and records audio request, dispatch, decode, and playback terminal boundaries.
+- Process-level exception hooks write full details to runtime and independent startup diagnostics; the startup presentation path does not duplicate a fallback record already written by `RuntimeLog.ReportProcessException`. `Game.Run` exceptions are logged and rethrown so failure exit semantics remain intact.
+- Host executable coverage verifies these contracts, including distinct exception instances, single startup fallback records, and a controlled nonzero fatal subprocess.
+
+**Why:**
+- Integer identity hashes can collide and suppress distinct failures, while duplicate startup reporting obscures the diagnostic trail.
+- The available evidence narrowed the jump failure to the native WAV decode boundary, so diagnostics must preserve deterministic simulation outcomes and the complete audio lifecycle without weakening fatal-process behavior.
+- Durable, flushed runtime and startup logs provide actionable evidence across both normal launch and early-failure paths.
