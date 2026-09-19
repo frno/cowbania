@@ -170,3 +170,54 @@ recording terminal failure boundaries, disabling retries, and falling back to si
   blocker.
 - [ ] Record the packaged build identifier, OS, result, and relevant log timestamps before marking
   Release 5 certified.
+
+## Release 6 Frontier visual certification
+
+### Automated contract evidence
+
+Run from the repository root:
+
+```powershell
+dotnet run --project tests\Cowbania.Core.Tests --no-restore
+dotnet run --project tests\Cowbania.Host.Tests --no-restore
+dotnet build Cowbania.sln --no-restore
+```
+
+The Host suite validates the complete Frontier PNG inventory, format and authored dimensions,
+runtime/output copy contracts, explicit missing-asset behavior, distinct actor/pickup mappings,
+snapshot-driven presentation, `RoomCatalog` terrain authority, `PointClamp` and integer scaling,
+render depth order, HUD icon usage, non-color telegraph cues, and paused/completed presentation
+clock gates without opening a graphical window.
+
+### Packaged visual certification
+
+- [ ] Record the packaged build identifier, OS, display scaling, and test resolution.
+- [ ] Capture matched **before and after 1024x576** screenshots in the hub and branch from the same
+  gameplay positions; retain the files with the certification evidence.
+- [ ] In grayscale, at least **90%** of first-look reviewers correctly classify foreground/jumpable
+  surfaces versus scenery and identify hazards, pickups, interactables, bandits, and wildlife.
+- [ ] A first-time player can read the intended hub-to-branch-to-hub route, checkpoint, shortcut,
+  entrances, and reachable platforms without coaching.
+- [ ] Every rendered ground/platform top aligns with its collision boundary to within **one rendered
+  pixel** at 1024x576.
+- [ ] No prop, skyline edge, background rim, or decorative silhouette reads as a false platform.
+- [ ] Player, bandit, wildlife, currency, health, ammo, checkpoint, shortcut, and attack states are
+  identifiable by silhouette/icon/pose without depending on hue.
+- [ ] Check grayscale plus protanopia, deuteranopia, and tritanopia simulations; hazards, pickups,
+  interactables, and telegraphs retain a non-color identification cue.
+- [ ] Foreground surfaces remain distinct from scenery through value, contrast, edge, thickness,
+  silhouette, and material treatment in both rooms.
+- [ ] Bandit aim/fire and wildlife lunge telegraphs remain readable and distinguishable when color
+  information is removed.
+- [ ] Pause during player animation, pickup float, bandit telegraph, wildlife lunge, projectile
+  travel, and effects; all simulation and presentation motion freezes until resume.
+- [ ] Completion freezes the same clocks and effects while keeping the completion presentation
+  visible and stable.
+- [ ] Pixel edges remain crisp during camera movement: no filtering, subpixel shimmer, scaling
+  blur, seams, or non-integer sprite growth.
+- [ ] HUD uses the authored heart, ammo, currency, and slot iconography and remains readable against
+  both room backgrounds.
+- [ ] Remove one required Frontier PNG from a disposable packaged copy and confirm startup reports
+  the exact missing relative path instead of silently substituting a placeholder or rectangle.
+- [ ] Complete the full Release 5 packaged encounter/objective route again. Release 6 certification
+  does not supersede or waive the still-required Release 5 interactive certification.

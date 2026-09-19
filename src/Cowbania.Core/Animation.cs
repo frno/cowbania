@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Numerics;
 
 namespace Cowbania.Core;
 
@@ -33,6 +34,10 @@ public sealed record AnimationClip(
     public float FrameDuration =>
         FramesPerSecond > 0f ? 1f / FramesPerSecond : 0f;
 }
+
+public readonly record struct AnimationActorMetadata(
+    Vector2 SourceFeetAnchor,
+    Vector2 SourceEffectAnchor);
 
 public sealed class AnimationClock
 {
@@ -107,14 +112,14 @@ public enum PlayerAnimationState
 
 public readonly record struct ActorPresentationState(
     PlayerAnimationState AnimationState,
-    System.Numerics.Vector2 FeetAnchor,
-    System.Numerics.Vector2 MuzzleAnchor,
+    Vector2 FeetAnchor,
+    Vector2 MuzzleAnchor,
     int FacingDirection);
 
 public static class PlayerAnimationStateSelector
 {
     public static PlayerAnimationState Select(
-        System.Numerics.Vector2 velocity,
+        Vector2 velocity,
         bool grounded,
         bool shooting = false,
         bool reloading = false,
@@ -258,73 +263,154 @@ public static class PresentationStateSelector
 public sealed class PresentationAnimationClock
 {
     private readonly AnimationClock clock = new();
+    private AnimationClip? currentClip;
 
     public PresentationAnimationState? CurrentState { get; private set; }
+    public AnimationClip? CurrentClip => currentClip;
     public int CurrentFrameIndex => clock.CurrentFrameIndex;
     public bool IsComplete => clock.IsComplete;
 
     public void Reset()
     {
         CurrentState = null;
+        currentClip = null;
         clock.Reset();
     }
 
-    public void Advance(float elapsedSeconds, PresentationAnimationState state)
+    public void Advance(float elapsedSeconds, PresentationAnimationState state) =>
+        Advance(elapsedSeconds, state, FrontierAnimationCatalog.For(state));
+
+    public void Advance(float elapsedSeconds, EnemyState enemy)
     {
-        if (CurrentState != state)
+        var state = PresentationStateSelector.SelectEnemy(enemy).AnimationState;
+        Advance(elapsedSeconds, state, FrontierAnimationCatalog.ForEnemy(enemy));
+    }
+
+    public void Advance(float elapsedSeconds, PickupType pickupType) =>
+        Advance(
+            elapsedSeconds,
+            PresentationAnimationState.PickupFloat,
+            FrontierAnimationCatalog.ForPickup(pickupType));
+
+    private void Advance(
+        float elapsedSeconds,
+        PresentationAnimationState state,
+        AnimationClip clip)
+    {
+        if (CurrentState != state || !ReferenceEquals(currentClip, clip))
         {
             CurrentState = state;
+            currentClip = clip;
             clock.Reset();
         }
 
-        clock.Advance(elapsedSeconds, PlaceholderAnimationCatalog.For(state));
+        clock.Advance(elapsedSeconds, clip);
     }
 
     public AnimationFrame CurrentFrame()
     {
-        if (CurrentState is not { } state)
+        if (currentClip is null)
             throw new InvalidOperationException("Select an animation state before reading its frame.");
 
-        return clock.CurrentFrame(PlaceholderAnimationCatalog.For(state));
+        return clock.CurrentFrame(currentClip);
     }
 }
 
-public static class PlaceholderAnimationCatalog
+public static class FrontierAnimationCatalog
 {
-    private static readonly AnimationClip Idle = new("idle", new[] { new AnimationFrame("idle_0.png"), new("idle_1.png") }, 3);
-    private static readonly AnimationClip Run = new("run", new[] { new AnimationFrame("run_0.png"), new("run_1.png") }, 8);
-    private static readonly AnimationClip Reload = new("reload", new[] { new AnimationFrame("reload_0.png"), new("reload_1.png") }, 6, AnimationPlaybackMode.OneShot);
-    private static readonly AnimationClip Shoot = new("shoot", new[] { new AnimationFrame("shoot_0.png"), new("shoot_1.png") }, 12, AnimationPlaybackMode.OneShot);
-    private static readonly AnimationClip Jump = new("jump", new[] { new AnimationFrame("jump_0.png") }, 1);
-    private static readonly AnimationClip Fall = new("fall", new[] { new AnimationFrame("fall_0.png") }, 1);
-    private static readonly AnimationClip Hurt = new("hurt", new[] { new AnimationFrame("hurt_0.png") }, 1, AnimationPlaybackMode.OneShot);
-    private static readonly AnimationClip EnemyIdle = new("enemy_idle", new[] { new AnimationFrame("idle_0.png"), new("idle_1.png") }, 4);
-    private static readonly AnimationClip PickupFloat = new("pickup_float", new[] { new AnimationFrame("float_0.png"), new("float_1.png") }, 4);
-    private static readonly AnimationClip BanditPatrol = new("bandit_patrol", new[] { new AnimationFrame("idle_0.png"), new("idle_1.png") }, 4);
-    private static readonly AnimationClip BanditNotice = new("bandit_notice", new[] { new AnimationFrame("idle_1.png"), new("idle_0.png") }, 8, AnimationPlaybackMode.OneShot);
-    private static readonly AnimationClip BanditAttack = new("bandit_attack", new[] { new AnimationFrame("idle_1.png"), new("idle_0.png") }, 10);
-    private static readonly AnimationClip WildlifePatrol = new("wildlife_patrol", new[] { new AnimationFrame("idle_1.png"), new("idle_0.png") }, 6);
-    private static readonly AnimationClip WildlifeNotice = new("wildlife_notice", new[] { new AnimationFrame("idle_0.png"), new("idle_1.png") }, 8, AnimationPlaybackMode.OneShot);
-    private static readonly AnimationClip WildlifeLunge = new("wildlife_lunge", new[] { new AnimationFrame("idle_1.png") }, 1);
-    private static readonly AnimationClip EnemyDefeated = new("enemy_defeated", new[] { new AnimationFrame("idle_0.png") }, 1, AnimationPlaybackMode.OneShot);
+    public static AnimationActorMetadata PlayerMetadata { get; } =
+        new(new Vector2(8, 13), new Vector2(13, 7));
+
+    public static AnimationActorMetadata BanditMetadata { get; } =
+        new(new Vector2(8, 13), new Vector2(14, 7));
+
+    public static AnimationActorMetadata WildlifeMetadata { get; } =
+        new(new Vector2(8, 13), new Vector2(14, 9));
+
+    public static AnimationActorMetadata PickupMetadata { get; } =
+        new(new Vector2(8, 13), new Vector2(8, 8));
+
+    public static ImmutableDictionary<PresentationAnimationState, AnimationClip> PlayerClips { get; } =
+        new Dictionary<PresentationAnimationState, AnimationClip>
+        {
+            [PresentationAnimationState.Idle] = Clip("player_idle", "Frontier/Player", "idle", 4, 6f),
+            [PresentationAnimationState.Run] = Clip("player_run", "Frontier/Player", "run", 6, 12f),
+            [PresentationAnimationState.Jump] = Clip("player_jump", "Frontier/Player", "jump", 2, 8f),
+            [PresentationAnimationState.Fall] = Clip("player_fall", "Frontier/Player", "fall", 2, 8f),
+            [PresentationAnimationState.Shoot] = Clip("player_shoot", "Frontier/Player", "shoot", 3, 15f, AnimationPlaybackMode.OneShot),
+            [PresentationAnimationState.Reload] = Clip("player_reload", "Frontier/Player", "reload", 4, 4f / GameWorld.ReloadDuration, AnimationPlaybackMode.OneShot),
+            [PresentationAnimationState.Hurt] = Clip("player_hurt", "Frontier/Player", "hurt", 2, 10f, AnimationPlaybackMode.OneShot),
+            [PresentationAnimationState.Dash] = Clip("player_dash", "Frontier/Player", "dash", 3, 15f, AnimationPlaybackMode.OneShot)
+        }.ToImmutableDictionary();
+
+    public static ImmutableDictionary<PresentationAnimationState, AnimationClip> BanditClips { get; } =
+        new Dictionary<PresentationAnimationState, AnimationClip>
+        {
+            [PresentationAnimationState.BanditPatrol] = Clip("bandit_patrol", "Frontier/Bandit", "patrol", 4, 6f),
+            [PresentationAnimationState.BanditNotice] = Clip("bandit_notice", "Frontier/Bandit", "notice", 2, 8f, AnimationPlaybackMode.OneShot),
+            [PresentationAnimationState.BanditAttack] = Clip("bandit_attack", "Frontier/Bandit", "attack", 4, 12f, AnimationPlaybackMode.OneShot),
+            [PresentationAnimationState.EnemyDefeated] = Clip("bandit_defeated", "Frontier/Bandit", "defeated", 2, 6f, AnimationPlaybackMode.OneShot)
+        }.ToImmutableDictionary();
+
+    public static ImmutableDictionary<PresentationAnimationState, AnimationClip> WildlifeClips { get; } =
+        new Dictionary<PresentationAnimationState, AnimationClip>
+        {
+            [PresentationAnimationState.WildlifePatrol] = Clip("wildlife_patrol", "Frontier/Wildlife", "patrol", 4, 8f),
+            [PresentationAnimationState.WildlifeNotice] = Clip("wildlife_notice", "Frontier/Wildlife", "notice", 2, 8f, AnimationPlaybackMode.OneShot),
+            [PresentationAnimationState.WildlifeLunge] = Clip("wildlife_lunge", "Frontier/Wildlife", "lunge", 4, 12f, AnimationPlaybackMode.OneShot),
+            [PresentationAnimationState.EnemyDefeated] = Clip("wildlife_defeated", "Frontier/Wildlife", "defeated", 2, 6f, AnimationPlaybackMode.OneShot)
+        }.ToImmutableDictionary();
+
+    public static ImmutableDictionary<PickupType, AnimationClip> PickupClips { get; } =
+        new Dictionary<PickupType, AnimationClip>
+        {
+            [PickupType.Currency] = Clip("currency_float", "Frontier/Pickup/Currency", "float", 4, 6f),
+            [PickupType.Health] = Clip("health_float", "Frontier/Pickup/Health", "float", 4, 6f),
+            [PickupType.ReserveAmmo] = Clip("ammo_float", "Frontier/Pickup/Ammo", "float", 4, 6f)
+        }.ToImmutableDictionary();
 
     public static AnimationClip For(PresentationAnimationState state) => state switch
     {
-        PresentationAnimationState.Run => Run,
-        PresentationAnimationState.Reload => Reload,
-        PresentationAnimationState.Shoot => Shoot,
-        PresentationAnimationState.Jump => Jump,
-        PresentationAnimationState.Fall => Fall,
-        PresentationAnimationState.Hurt => Hurt,
-        PresentationAnimationState.EnemyIdle => EnemyIdle,
-        PresentationAnimationState.PickupFloat => PickupFloat,
-        PresentationAnimationState.BanditPatrol => BanditPatrol,
-        PresentationAnimationState.BanditNotice => BanditNotice,
-        PresentationAnimationState.BanditAttack => BanditAttack,
-        PresentationAnimationState.WildlifePatrol => WildlifePatrol,
-        PresentationAnimationState.WildlifeNotice => WildlifeNotice,
-        PresentationAnimationState.WildlifeLunge => WildlifeLunge,
-        PresentationAnimationState.EnemyDefeated => EnemyDefeated,
-        _ => Idle
+        PresentationAnimationState.EnemyIdle => BanditClips[PresentationAnimationState.BanditPatrol],
+        PresentationAnimationState.PickupFloat => PickupClips[PickupType.Currency],
+        PresentationAnimationState.BanditPatrol or
+        PresentationAnimationState.BanditNotice or
+        PresentationAnimationState.BanditAttack or
+        PresentationAnimationState.EnemyDefeated => BanditClips[state],
+        PresentationAnimationState.WildlifePatrol or
+        PresentationAnimationState.WildlifeNotice or
+        PresentationAnimationState.WildlifeLunge => WildlifeClips[state],
+        _ => PlayerClips[state]
     };
+
+    public static AnimationClip ForEnemy(EnemyState enemy)
+    {
+        var state = PresentationStateSelector.SelectEnemy(enemy).AnimationState;
+        return enemy.Archetype == EnemyArchetype.Bandit
+            ? BanditClips[state]
+            : WildlifeClips[state];
+    }
+
+    public static AnimationClip ForPickup(PickupType type) => PickupClips[type];
+
+    private static AnimationClip Clip(
+        string name,
+        string path,
+        string frameName,
+        int frameCount,
+        float framesPerSecond,
+        AnimationPlaybackMode playbackMode = AnimationPlaybackMode.Loop) =>
+        new(
+            name,
+            Enumerable.Range(0, frameCount)
+                .Select(index => new AnimationFrame($"{path}/{frameName}_{index}.png")),
+            framesPerSecond,
+            playbackMode);
+}
+
+[Obsolete("Use FrontierAnimationCatalog.")]
+public static class PlaceholderAnimationCatalog
+{
+    public static AnimationClip For(PresentationAnimationState state) =>
+        FrontierAnimationCatalog.For(state);
 }

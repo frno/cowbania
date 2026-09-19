@@ -1,5 +1,11 @@
+using System.Buffers.Binary;
+using System.IO.Compression;
+using Cowbania.Core;
+
 static class Tests
 {
+    static readonly List<string> Failures = [];
+
     static void Main()
     {
         DeleteDiagnosticLogs();
@@ -203,7 +209,301 @@ static class Tests
             }
         });
 
+        Run("Frontier runtime has no placeholder asset references", () =>
+        {
+            var root = FindRepositoryRoot();
+            var hostSource = ReadSource(root, "src", "Cowbania.Host", "CowbaniaGame.cs");
+            var hostProject = ReadSource(root, "src", "Cowbania.Host", "Cowbania.Host.csproj");
+
+            Assert(!hostSource.Contains("Placeholders", StringComparison.OrdinalIgnoreCase),
+                "the Host runtime must not reference the retired Placeholders asset tree");
+            Assert(!hostProject.Contains("Placeholders", StringComparison.OrdinalIgnoreCase),
+                "the Host project must not copy retired placeholder art");
+            Assert(AllAnimationAssetKeys().All(key => key.StartsWith("Frontier/", StringComparison.Ordinal)),
+                "every runtime animation key resolves inside the Frontier pack");
+        });
+
+        Run("Frontier manifest and PNG inventory are complete", () =>
+        {
+            var root = FindRepositoryRoot();
+            var frontierRoot = Path.Combine(root, "Assets", "Art", "Frontier");
+            var expected = ExpectedFrontierAssets();
+            var actual = Directory.GetFiles(frontierRoot, "*.png", SearchOption.AllDirectories)
+                .Select(path => Path.GetRelativePath(Path.Combine(root, "Assets", "Art"), path).Replace('\\', '/'))
+                .ToHashSet(StringComparer.Ordinal);
+
+            Assert(expected.SetEquals(actual),
+                $"Frontier PNG inventory differs. Missing=[{string.Join(", ", expected.Except(actual).Order())}] " +
+                $"Unexpected=[{string.Join(", ", actual.Except(expected).Order())}]");
+            Assert(File.Exists(Path.Combine(frontierRoot, "manifest.md")),
+                "the authored Frontier manifest must ship with the source pack");
+        });
+
+        Run("Frontier PNGs have valid RGBA signatures dimensions and transparency", () =>
+        {
+            var artRoot = Path.Combine(FindRepositoryRoot(), "Assets", "Art");
+            foreach (var asset in ExpectedFrontierAssets())
+            {
+                var path = Path.Combine(artRoot, asset.Replace('/', Path.DirectorySeparatorChar));
+                var png = ReadPng(path);
+                var expectedSize = ExpectedPngSize(asset);
+
+                Assert((png.Width, png.Height) == expectedSize,
+                    $"{asset} must be {expectedSize.Width}x{expectedSize.Height}, found {png.Width}x{png.Height}");
+                Assert(png.BitDepth == 8 && png.ColorType == 6 && png.InterlaceMethod == 0,
+                    $"{asset} must be a non-interlaced 8-bit RGBA PNG");
+                Assert(png.MaximumAlpha == 255, $"{asset} must contain visible opaque artwork");
+                var opaqueFillTile =
+                    asset.EndsWith("/Terrain/ground_body.png", StringComparison.Ordinal) ||
+                    asset.EndsWith("/Terrain/stone.png", StringComparison.Ordinal);
+                Assert(opaqueFillTile || png.MinimumAlpha == 0,
+                    $"{asset} must contain transparent background pixels");
+            }
+        });
+
+        Run("Frontier actor and pickup mappings are distinct", () =>
+        {
+            var bandit = FrontierAnimationCatalog.BanditClips.Values
+                .SelectMany(clip => clip.Frames).Select(frame => frame.AssetKey).ToHashSet(StringComparer.Ordinal);
+            var wildlife = FrontierAnimationCatalog.WildlifeClips.Values
+                .SelectMany(clip => clip.Frames).Select(frame => frame.AssetKey).ToHashSet(StringComparer.Ordinal);
+            Assert(!bandit.Overlaps(wildlife), "bandit and wildlife must not share sprite mappings");
+            Assert(bandit.All(key => key.StartsWith("Frontier/Bandit/", StringComparison.Ordinal)),
+                "bandit clips must resolve to Bandit art");
+            Assert(wildlife.All(key => key.StartsWith("Frontier/Wildlife/", StringComparison.Ordinal)),
+                "wildlife clips must resolve to Wildlife art");
+
+            var pickupSets = Enum.GetValues<PickupType>().ToDictionary(
+                type => type,
+                type => FrontierAnimationCatalog.ForPickup(type).Frames
+                    .Select(frame => frame.AssetKey).ToHashSet(StringComparer.Ordinal));
+            foreach (var left in pickupSets)
+            foreach (var right in pickupSets)
+                if (left.Key < right.Key)
+                    Assert(!left.Value.Overlaps(right.Value),
+                        $"{left.Key} and {right.Key} pickups must use distinct icon frames");
+        });
+
+        Run("presentation clocks are deterministic and gated by pause or completion", () =>
+        {
+            var first = new PresentationAnimationClock();
+            var second = new PresentationAnimationClock();
+            var enemy = new EnemyState(
+                "bandit-test", EnemyArchetype.Bandit, EnemyBehaviorState.Attack, EnemyAttackPhase.Telegraph,
+                new System.Numerics.Vector2(100, 480), System.Numerics.Vector2.Zero, 1, 2, true, 0.5f, 0.25f);
+            foreach (var dt in new[] { 0.01f, 0.07f, 0.13f, 0.02f })
+            {
+                first.Advance(dt, enemy);
+                second.Advance(dt, enemy);
+            }
+            Assert(first.CurrentFrame() == second.CurrentFrame() &&
+                   first.CurrentFrameIndex == second.CurrentFrameIndex,
+                "equivalent snapshots and elapsed-time sequences must select the same presentation frame");
+
+            var beforeGate = first.CurrentFrameIndex;
+            AdvancePresentation(first, enemy, 1f, paused: true, completed: false);
+            AdvancePresentation(first, enemy, 1f, paused: false, completed: true);
+            Assert(first.CurrentFrameIndex == beforeGate,
+                "paused and completed presentation gates must not advance clocks");
+
+            var root = FindRepositoryRoot();
+            var updateBody = MethodBody(ReadSource(root, "src", "Cowbania.Host", "CowbaniaGame.cs"), "Update");
+            var gateIndex = updateBody.IndexOf("if (simulationActive)", StringComparison.Ordinal);
+            var advances = System.Text.RegularExpressions.Regex.Matches(updateBody, @"\w+\.Advance\(dt")
+                .Select(match => match.Index).ToArray();
+            Assert(updateBody.Contains("!world.IsPaused && !world.Completed", StringComparison.Ordinal) &&
+                   gateIndex >= 0 && advances.Length >= 3 && advances.All(index => index > gateIndex),
+                "Host presentation clocks must advance only inside the shared pause/completion gate");
+        });
+
+        Run("terrain tiles keep integer scale and clip partial solid edges", () =>
+        {
+            var solid = new Microsoft.Xna.Framework.Rectangle(250, 380, 220, 24);
+            var tiles = TerrainTileLayout.Cover(solid).ToArray();
+
+            Assert(tiles.Length > 0, "raised terrain must produce tile draws");
+            Assert(tiles.All(tile =>
+                    tile.Destination.Width == tile.Source.Width * TerrainTileLayout.PixelScale &&
+                    tile.Destination.Height == tile.Source.Height * TerrainTileLayout.PixelScale),
+                "every terrain source pixel must render at the same integer scale");
+            Assert(tiles.All(tile =>
+                    tile.Destination.Width == TerrainTileLayout.DestinationTileSize &&
+                    tile.Destination.Height == TerrainTileLayout.DestinationTileSize),
+                "partial surface dimensions must not rescale individual tiles");
+            Assert(tiles.Max(tile => tile.Destination.Right) >= solid.Right &&
+                   tiles.Max(tile => tile.Destination.Bottom) >= solid.Bottom,
+                "full-size edge tiles must cover the exact solid for destination clipping");
+
+            var source = ReadSource(FindRepositoryRoot(), "src", "Cowbania.Host", "CowbaniaGame.cs");
+            var drawSolid = MethodBody(source, "DrawSolidSurface");
+            Assert(drawSolid.Contains("Rectangle.Intersect(rect, viewport)", StringComparison.Ordinal) &&
+                   drawSolid.Contains("GraphicsDevice.ScissorRectangle = clip", StringComparison.Ordinal) &&
+                   drawSolid.Contains("TerrainTileLayout.Cover(rect)", StringComparison.Ordinal),
+                "terrain drawing must clip full integer-scaled tiles to the RoomCatalog solid rectangle");
+        });
+
+        Run("projectiles have persistent visuals distinct from transient effects", () =>
+        {
+            var player = ProjectileVisualCatalog.For(ProjectileOwner.Player);
+            var hostile = ProjectileVisualCatalog.For(ProjectileOwner.Enemy);
+
+            Assert(player.Shape == ProjectileVisualShape.PlayerTracer &&
+                   hostile.Shape == ProjectileVisualShape.HostileBolt,
+                "player and hostile projectiles need distinct directional silhouettes");
+            Assert(player.PrimaryColor != hostile.PrimaryColor &&
+                   player.SecondaryColor != hostile.SecondaryColor &&
+                   (player.Length, player.Thickness) != (hostile.Length, hostile.Thickness),
+                "projectile ownership must remain readable by color and geometry");
+
+            var source = ReadSource(FindRepositoryRoot(), "src", "Cowbania.Host", "CowbaniaGame.cs");
+            var draw = MethodBody(source, "Draw");
+            var projectile = MethodBody(source, "DrawProjectile");
+            Assert(draw.Contains("DrawProjectile(projectile, cameraX)", StringComparison.Ordinal),
+                "persistent projectile snapshots must use the dedicated projectile renderer");
+            Assert(!projectile.Contains("DrawEffect", StringComparison.Ordinal) &&
+                   !projectile.Contains("\"muzzle\"", StringComparison.Ordinal) &&
+                   !projectile.Contains("\"impact\"", StringComparison.Ordinal),
+                "muzzle and impact sprites must remain transient effects, never projectile bodies");
+        });
+
+        Run("every accepted repeated shot restarts the one-shot animation", () =>
+        {
+            Assert(PlayerAnimationRestart.ShouldReset(
+                    PresentationAnimationState.Shoot,
+                    PresentationAnimationState.Shoot,
+                    acceptedPlayerShot: true),
+                "a second accepted shot must restart Shoot even when the selected state is unchanged");
+            Assert(!PlayerAnimationRestart.ShouldReset(
+                    PresentationAnimationState.Shoot,
+                    PresentationAnimationState.Shoot,
+                    acceptedPlayerShot: false),
+                "held fire without an ammo decrement must not restart the animation");
+            Assert(!PlayerAnimationRestart.ShouldReset(
+                    PresentationAnimationState.Hurt,
+                    PresentationAnimationState.Hurt,
+                    acceptedPlayerShot: true),
+                "an accepted shot must not override a higher-precedence selected state");
+
+            var update = MethodBody(
+                ReadSource(FindRepositoryRoot(), "src", "Cowbania.Host", "CowbaniaGame.cs"),
+                "Update");
+            Assert(update.Contains("var acceptedPlayerShot = world.Ammo < previousAmmo", StringComparison.Ordinal) &&
+                   update.Contains("PlayerAnimationRestart.ShouldReset", StringComparison.Ordinal),
+                "the restart decision must be driven by the deterministic ammo decrement");
+        });
+
+        Run("defeat effects play three frames once and stop", () =>
+        {
+            var clock = new BoundedEffectClock(3, 6f);
+            Assert(clock.IsVisible && clock.CurrentFrameIndex == 0, "defeat starts on frame zero");
+            clock.Advance(0.17f);
+            Assert(clock.IsVisible && clock.CurrentFrameIndex == 1, "defeat advances to frame one");
+            clock.Advance(0.17f);
+            Assert(clock.IsVisible && clock.CurrentFrameIndex == 2, "defeat advances to frame two");
+            clock.Advance(0.17f);
+            Assert(!clock.IsVisible && clock.CurrentFrameIndex == 2,
+                "defeat stops after its final frame instead of wrapping");
+            clock.Advance(10f);
+            Assert(!clock.IsVisible && clock.CurrentFrameIndex == 2,
+                "completed defeat effects remain bounded");
+
+            var source = ReadSource(FindRepositoryRoot(), "src", "Cowbania.Host", "CowbaniaGame.cs");
+            var update = MethodBody(source, "Update");
+            var effects = MethodBody(source, "DrawEnemyEffects");
+            Assert(source.Contains(
+                       "Dictionary<string, BoundedEffectClock> defeatEffectClocks",
+                       StringComparison.Ordinal) &&
+                   update.Contains("defeatEffectClocks.Clear()", StringComparison.Ordinal),
+                "defeat clocks must be keyed by stable enemy ID and reset with the encounter");
+            Assert(effects.Contains("clock.IsVisible", StringComparison.Ordinal) &&
+                   !effects.Contains("FixedFrame", StringComparison.Ordinal),
+                "defeat drawing must stop after the bounded clock completes");
+        });
+
+        Run("Frontier renderer preserves sampling geometry depth and snapshot contracts", () =>
+        {
+            var root = FindRepositoryRoot();
+            var source = ReadSource(root, "src", "Cowbania.Host", "CowbaniaGame.cs");
+            var draw = MethodBody(source, "Draw");
+            var solid = MethodBody(source, "DrawSolidSurface");
+
+            Assert(source.Contains("SamplerState.PointClamp", StringComparison.Ordinal),
+                "Frontier rendering must use PointClamp");
+            var fractionalScaleCalls = System.Text.RegularExpressions.Regex.Matches(
+                    source, @"(?:DrawActorSprite|DrawAnchoredSprite|DrawEffect|DrawProp)\s*\([^;]*,\s*\d+\.\d+f\s*\)",
+                    System.Text.RegularExpressions.RegexOptions.Singleline)
+                .Select(match => System.Text.RegularExpressions.Regex.Replace(match.Value, @"\s+", " "))
+                .ToArray();
+            Assert(fractionalScaleCalls.Length == 0,
+                $"Frontier sprites and effects must use integer scale factors. Found: {string.Join(" | ", fractionalScaleCalls)}");
+            Assert(source.Contains("PresentationStateSelector.SelectEnemy(enemy)", StringComparison.Ordinal) &&
+                   source.Contains("FrontierAnimationCatalog.ForEnemy(enemy)", StringComparison.Ordinal),
+                "enemy presentation must be selected from deterministic enemy snapshots");
+            Assert(!source.Contains("new Random", StringComparison.Ordinal) &&
+                   !source.Contains("DateTime.", StringComparison.Ordinal),
+                "presentation must not introduce nondeterministic random or wall-clock selection");
+            Assert(draw.Contains("foreach (var solid in room.Solids)", StringComparison.Ordinal) &&
+                   solid.Contains("ToScreen(solid, cameraX)", StringComparison.Ordinal),
+                "rendered terrain must consume RoomCatalog solids directly");
+
+            AssertInOrder(draw,
+                "DrawRoomBackdrop", "DrawRoomSetDressing", "DrawSolidSurface", "DrawLandmarks",
+                "DrawActorSprite", "world.Projectiles", "world.AvailablePickups",
+                "DrawTerrainForeground", "DrawHud");
+        });
+
+        Run("Frontier output copy and explicit missing asset behavior are enforced", () =>
+        {
+            var root = FindRepositoryRoot();
+            var project = ReadSource(root, "src", "Cowbania.Host", "Cowbania.Host.csproj");
+            Assert(project.Contains(@"Assets\Art\Frontier\**\*.png", StringComparison.Ordinal) &&
+                   project.Contains("CopyToOutputDirectory=\"PreserveNewest\"", StringComparison.Ordinal) &&
+                   project.Contains("%(RecursiveDir)", StringComparison.Ordinal),
+                "the Host project must recursively preserve the Frontier asset tree in build output");
+
+            var outputArt = Path.Combine(root, "src", "Cowbania.Host", "bin", "Debug", "net10.0", "Assets", "Art");
+            foreach (var asset in ExpectedFrontierAssets())
+                Assert(File.Exists(Path.Combine(outputArt, asset.Replace('/', Path.DirectorySeparatorChar))),
+                    $"required output asset is missing: {asset}");
+
+            var loader = MethodBody(ReadSource(root, "src", "Cowbania.Host", "CowbaniaGame.cs"), "LoadFrontierSprite");
+            Assert(loader.Contains("throw new FileNotFoundException", StringComparison.Ordinal) &&
+                   loader.Contains("Required Frontier", StringComparison.Ordinal) &&
+                   loader.Contains("relativePath", StringComparison.Ordinal) &&
+                   !loader.Contains("Placeholders", StringComparison.OrdinalIgnoreCase),
+                "missing Frontier art must fail with the exact relative asset path and no placeholder fallback");
+        });
+
+        Run("HUD and combat telegraphs include non-color identity cues", () =>
+        {
+            var source = ReadSource(FindRepositoryRoot(), "src", "Cowbania.Host", "CowbaniaGame.cs");
+            var hud = MethodBody(source, "DrawHud");
+            foreach (var icon in new[] { "heart_full", "heart_empty", "ammo_full", "ammo_empty", "currency", "slot_frame" })
+                Assert(hud.Contains($"\"{icon}\"", StringComparison.Ordinal), $"HUD must use the {icon} Frontier icon");
+
+            var bandit = PresentationStateSelector.SelectEnemy(new EnemyState(
+                "bandit", EnemyArchetype.Bandit, EnemyBehaviorState.Attack, EnemyAttackPhase.Telegraph,
+                default, default, 1, 2, true, 0, 0.5f));
+            var wildlife = PresentationStateSelector.SelectEnemy(new EnemyState(
+                "wildlife", EnemyArchetype.Wildlife, EnemyBehaviorState.Attack, EnemyAttackPhase.Telegraph,
+                default, default, 1, 2, true, 0, 0.5f));
+            Assert(bandit.TelegraphMarker == EnemyTelegraphMarker.BanditAimLine &&
+                   wildlife.TelegraphMarker == EnemyTelegraphMarker.WildlifeLungeArrow &&
+                   bandit.AnimationState != wildlife.AnimationState,
+                "bandit and wildlife telegraphs must differ by geometry and pose, not tint alone");
+            var telegraph = MethodBody(source, "DrawEnemyTelegraph");
+            Assert(telegraph.Contains("BanditAimLine", StringComparison.Ordinal) &&
+                   telegraph.Contains("WildlifeLungeArrow", StringComparison.Ordinal) &&
+                   telegraph.Contains("Rectangle", StringComparison.Ordinal),
+                "telegraph rendering must provide persistent shape cues in addition to color");
+        });
+
         RuntimeLog.Shutdown();
+
+        if (Failures.Count > 0)
+            throw new InvalidOperationException(
+                $"Cowbania.Host.Tests: FAIL ({Failures.Count}){Environment.NewLine}" +
+                string.Join(Environment.NewLine, Failures.Select(failure => $"- {failure}")));
 
         Console.WriteLine("Cowbania.Host.Tests: PASS");
     }
@@ -234,6 +534,181 @@ static class Tests
         return File.ReadAllText(RuntimeLogPath);
     }
 
+    static string ReadSource(string root, params string[] parts) =>
+        File.ReadAllText(Path.Combine(new[] { root }.Concat(parts).ToArray()));
+
+    static IEnumerable<string> AllAnimationAssetKeys() =>
+        FrontierAnimationCatalog.PlayerClips.Values
+            .Concat(FrontierAnimationCatalog.BanditClips.Values)
+            .Concat(FrontierAnimationCatalog.WildlifeClips.Values)
+            .Concat(FrontierAnimationCatalog.PickupClips.Values)
+            .SelectMany(clip => clip.Frames)
+            .Select(frame => frame.AssetKey)
+            .Distinct(StringComparer.Ordinal);
+
+    static HashSet<string> ExpectedFrontierAssets()
+    {
+        var assets = AllAnimationAssetKeys().ToHashSet(StringComparer.Ordinal);
+        AddNamed(assets, "Terrain", "ground_cap", "ground_body", "platform_left", "platform_middle",
+            "platform_right", "timber_support", "stone", "mine_reinforcement");
+        AddNamed(assets, "Props", "cactus_0", "cactus_1", "crate", "sign", "checkpoint", "shortcut",
+            "transition_gate", "wagon_debris", "mine_timber");
+        AddNamed(assets, "Effects", "muzzle_0", "muzzle_1", "muzzle_2", "impact_0", "impact_1", "impact_2",
+            "dust_0", "dust_1", "dust_2", "dash_0", "dash_1", "dash_2", "hurt_0", "hurt_1",
+            "defeat_0", "defeat_1", "defeat_2", "pickup_0", "pickup_1", "pickup_2", "pickup_3");
+        AddNamed(assets, "UI", "heart_full", "heart_empty", "ammo_full", "ammo_empty", "currency",
+            "slot_frame", "panel_corner");
+        AddNamed(assets, "Background", "hub_far", "hub_mid", "branch_far", "branch_mid");
+        return assets;
+    }
+
+    static void AddNamed(HashSet<string> assets, string category, params string[] names)
+    {
+        foreach (var name in names)
+            assets.Add($"Frontier/{category}/{name}.png");
+    }
+
+    static (int Width, int Height) ExpectedPngSize(string asset)
+    {
+        if (asset.StartsWith("Frontier/Background/", StringComparison.Ordinal))
+            return (256, 144);
+        if (new[] { "checkpoint.png", "shortcut.png", "transition_gate.png", "wagon_debris.png", "mine_timber.png" }
+            .Any(name => asset.EndsWith($"/{name}", StringComparison.Ordinal)))
+            return (32, 32);
+        return (16, 16);
+    }
+
+    static PngInfo ReadPng(string path)
+    {
+        var bytes = File.ReadAllBytes(path);
+        Assert(bytes.AsSpan(0, 8).SequenceEqual(new byte[] { 137, 80, 78, 71, 13, 10, 26, 10 }),
+            $"{path} has an invalid PNG signature");
+
+        var offset = 8;
+        var idat = new MemoryStream();
+        var width = 0;
+        var height = 0;
+        byte bitDepth = 0;
+        byte colorType = 0;
+        byte interlace = 0;
+        while (offset + 12 <= bytes.Length)
+        {
+            var length = BinaryPrimitives.ReadInt32BigEndian(bytes.AsSpan(offset, 4));
+            var type = System.Text.Encoding.ASCII.GetString(bytes, offset + 4, 4);
+            var data = bytes.AsSpan(offset + 8, length);
+            if (type == "IHDR")
+            {
+                width = BinaryPrimitives.ReadInt32BigEndian(data[..4]);
+                height = BinaryPrimitives.ReadInt32BigEndian(data.Slice(4, 4));
+                bitDepth = data[8];
+                colorType = data[9];
+                interlace = data[12];
+            }
+            else if (type == "IDAT")
+            {
+                idat.Write(data);
+            }
+            else if (type == "IEND")
+            {
+                break;
+            }
+            offset += length + 12;
+        }
+
+        Assert(width > 0 && height > 0 && idat.Length > 0, $"{path} is missing required PNG chunks");
+        Assert(bitDepth == 8 && colorType == 6 && interlace == 0,
+            $"{path} must be non-interlaced 8-bit RGBA before alpha validation");
+
+        idat.Position = 0;
+        using var zlib = new ZLibStream(idat, CompressionMode.Decompress);
+        using var raw = new MemoryStream();
+        zlib.CopyTo(raw);
+        var scanlines = raw.ToArray();
+        var stride = width * 4;
+        Assert(scanlines.Length == (stride + 1) * height, $"{path} has an unexpected RGBA scanline length");
+        var previous = new byte[stride];
+        var current = new byte[stride];
+        byte minimumAlpha = byte.MaxValue;
+        byte maximumAlpha = byte.MinValue;
+        for (var row = 0; row < height; row++)
+        {
+            var rowOffset = row * (stride + 1);
+            var filter = scanlines[rowOffset];
+            for (var column = 0; column < stride; column++)
+            {
+                var encoded = scanlines[rowOffset + 1 + column];
+                var left = column >= 4 ? current[column - 4] : (byte)0;
+                var up = previous[column];
+                var upperLeft = column >= 4 ? previous[column - 4] : (byte)0;
+                current[column] = filter switch
+                {
+                    0 => encoded,
+                    1 => unchecked((byte)(encoded + left)),
+                    2 => unchecked((byte)(encoded + up)),
+                    3 => unchecked((byte)(encoded + ((left + up) >> 1))),
+                    4 => unchecked((byte)(encoded + Paeth(left, up, upperLeft))),
+                    _ => throw new InvalidDataException($"{path} uses unsupported PNG filter {filter}")
+                };
+            }
+            for (var alpha = 3; alpha < stride; alpha += 4)
+            {
+                minimumAlpha = Math.Min(minimumAlpha, current[alpha]);
+                maximumAlpha = Math.Max(maximumAlpha, current[alpha]);
+            }
+            (previous, current) = (current, previous);
+            Array.Clear(current);
+        }
+        return new PngInfo(width, height, bitDepth, colorType, interlace, minimumAlpha, maximumAlpha);
+    }
+
+    static byte Paeth(byte left, byte up, byte upperLeft)
+    {
+        var prediction = left + up - upperLeft;
+        var leftDistance = Math.Abs(prediction - left);
+        var upDistance = Math.Abs(prediction - up);
+        var upperLeftDistance = Math.Abs(prediction - upperLeft);
+        return leftDistance <= upDistance && leftDistance <= upperLeftDistance
+            ? left
+            : upDistance <= upperLeftDistance ? up : upperLeft;
+    }
+
+    static void AdvancePresentation(
+        PresentationAnimationClock clock,
+        EnemyState snapshot,
+        float elapsedSeconds,
+        bool paused,
+        bool completed)
+    {
+        if (!paused && !completed)
+            clock.Advance(elapsedSeconds, snapshot);
+    }
+
+    static string MethodBody(string source, string methodName)
+    {
+        var declaration = System.Text.RegularExpressions.Regex.Match(
+            source,
+            $@"(?m)^\s+(?:private|protected|public)\s+[^\r\n]*\b{System.Text.RegularExpressions.Regex.Escape(methodName)}\s*\(");
+        Assert(declaration.Success, $"cannot find method {methodName}");
+        var nextDeclaration = System.Text.RegularExpressions.Regex.Match(
+            source[(declaration.Index + declaration.Length)..],
+            @"(?m)^\s+(?:private|protected|public)\s+");
+        var end = nextDeclaration.Success
+            ? declaration.Index + declaration.Length + nextDeclaration.Index
+            : source.Length;
+        return source[declaration.Index..end];
+    }
+
+    static void AssertInOrder(string source, params string[] markers)
+    {
+        var previous = -1;
+        foreach (var marker in markers)
+        {
+            var index = source.IndexOf(marker, previous + 1, StringComparison.Ordinal);
+            Assert(index > previous, $"render marker '{marker}' is missing or out of depth order");
+            previous = index;
+        }
+    }
+
     static int Count(string value, string marker)
     {
         var count = 0;
@@ -256,7 +731,9 @@ static class Tests
         }
         catch (Exception exception)
         {
-            throw new InvalidOperationException($"{name}: {exception.Message}", exception);
+            var failure = $"{name}: {exception.Message}";
+            Failures.Add(failure);
+            Console.WriteLine($"[FAIL] {failure}");
         }
     }
 
@@ -340,4 +817,13 @@ static class Tests
             throw new InvalidDataException("test managed decode failure");
         }
     }
+
+    readonly record struct PngInfo(
+        int Width,
+        int Height,
+        byte BitDepth,
+        byte ColorType,
+        byte InterlaceMethod,
+        byte MinimumAlpha,
+        byte MaximumAlpha);
 }

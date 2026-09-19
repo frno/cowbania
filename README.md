@@ -4,7 +4,7 @@ A MonoGame/.NET 10 2D C# desktop keyboard-only metroidvania prototype with a cow
 
 ## Prototype scope
 
-The player is an outlaw escaping through a dangerous interconnected area. The prototype is a side-view pixel-art slice with crisp nearest-neighbor rendering. Placeholder sprites use 16x16 or 32x32 designs and must remain replaceable.
+The player is an outlaw escaping through a dangerous interconnected area. The prototype is a side-view pixel-art slice with crisp nearest-neighbor rendering. Release 6 uses the original Frontier visual pack, with 16x16 actor, pickup, terrain, effect, and HUD art plus larger landmark and background assets.
 
 The first slice contains one connected mini-area with a loop, branching routes, and shortcuts. The player can run, jump, and dash from the beginning; dash gates are environmental rather than ability-unlock gates. Prototype completion is reached by unlocking a shortcut and returning to the hub.
 
@@ -18,9 +18,9 @@ Included systems:
 - Smooth camera follow with room bounds
 - Currency (HUD counter only), health, and reserved ammo collectibles; reserved ammo is not active for the revolver
 - HUD for health, revolver ammo, selected slot 1, currency, pause, and completion
-- Placeholder sound effects for shooting, reload, jump, dash, pickups, and damage
+- Sound effects for shooting, reload, jump, dash, pickups, and damage
 - Player animation states: idle, run, jump, fall, shoot, reload, and hurt
-- Placeholder animations for other visible animated objects where appropriate
+- Frontier animations for other visible animated objects where appropriate
 
 The weapon architecture should anticipate ten future weapon slots, but only slot 1 (the revolver) is active in this prototype.
 
@@ -43,14 +43,13 @@ Mouse input is not supported.
 ## Project structure
 
 - `src/Cowbania.Core/` is the deterministic, engine-independent gameplay simulation.
-- `src/Cowbania.Host/` is the thin MonoGame desktop host and placeholder renderer.
+- `src/Cowbania.Host/` is the thin MonoGame desktop host and Frontier renderer.
 - `tests/Cowbania.Core.Tests/` is a dependency-free deterministic smoke-test executable.
-- `Assets/Art/Placeholders/` are copied beside the host executable and loaded as PNGs at runtime; audio remains available for a later Content Pipeline pass.
+- `Assets/Art/Frontier/` contains the runtime PNG manifest copied beside the host executable; audio remains file-loaded without a Content Pipeline dependency.
 
 The host uses `MonoGame.Framework.DesktopGL` 3.8.2.1105. MonoGame is referenced as a NuGet
 package so the repository builds from the command line without Unity or an editor install.
-Placeholder sprites are rendered with `SamplerState.PointClamp` and scaled from 16x16 to 32–48
-pixels without filtering.
+Frontier sprites are rendered with `SamplerState.PointClamp` at integer scale without filtering.
 
 ## Release 1 animation architecture
 
@@ -58,13 +57,13 @@ pixels without filtering.
 primitives. Clips explicitly select loop or one-shot playback, while clocks advance only from
 elapsed seconds and hold the final frame when a one-shot completes. `PresentationStateSelector`
 maps gameplay presentation inputs to player idle/run/jump/fall/shoot/reload/hurt/dash states and
-also exposes enemy idle and pickup float states. `PlaceholderAnimationCatalog` maps those states
-to the existing placeholder PNG frame names.
+also exposes enemy and pickup states. `FrontierAnimationCatalog` maps those states and typed enemy
+and pickup snapshots to the current Frontier PNG frame names.
 
-The MonoGame host caches every placeholder frame once during `LoadContent`, advances one clock
+The MonoGame host caches every required Frontier frame once during `LoadContent`, advances one clock
 per visible actor (and one for pickups), and draws the selected frame with `PointClamp`. Actor
-feet continue to use the gameplay anchor and source origin `(width / 2, 12)`, the muzzle remains
-the existing 24-pixel gameplay offset, and horizontal facing still uses sprite flips. This keeps
+feet use the authored source anchor `(8,13)`, effects use catalogued anchors, and horizontal facing
+uses sprite flips. This keeps
 animation presentation separate from collision geometry and avoids engine/runtime dependencies in
 the core library.
 
@@ -128,7 +127,7 @@ reported there but does not prevent the game from launching. Automated coverage 
 formatting, deduplication, aggregate expansion, observation, and sink durability through in-process
 test seams; routine tests and launches do not deliberately terminate the host.
 
-## Next release: Release 5 enemy encounters
+## Release 5 enemy encounters and certification status
 
 Release 5 turns the existing enemy placements into a small, readable combat encounter pass without
 adding rooms, weapons, bosses, saves, or new content-pipeline dependencies. The existing four spawn
@@ -143,6 +142,26 @@ reported jump failure itself is only narrowed to native `SFX_Jump.wav` decoding,
 work may proceed immediately, but Release 5 cannot be certified until a manual packaged-build run
 either completes the keyboard-to-shortcut loop with jump audio enabled or records a durable terminal
 audio boundary and ships a verified non-stalling fallback.
+
+## Release 6 Frontier Visual Identity
+
+Release 6 replaces runtime placeholder art and primitive-only identity cues with the original
+`Assets/Art/Frontier` pack while preserving the Release 5 gameplay, deterministic snapshot, pause,
+completion, collision, audio-fallback, and certification contracts. It covers player, bandit,
+wildlife, pickups, terrain, props, backgrounds, effects, and HUD icons. Rendering remains
+presentation-only, consumes `GameWorld`/`RoomCatalog` state, uses `PointClamp`, integer scaling, and
+an explicit back-to-front depth order. Missing required art is a startup error rather than a silent
+fallback to rectangles or placeholder files.
+
+The visual hierarchy is a release rule: foreground and jumpable surfaces must be immediately
+distinct from scenery through **value, contrast, edge, thickness, silhouette, and material
+treatment**. Decorative scenery must not create false platform edges. Hazards, pickups,
+interactables, enemy archetypes, and attack telegraphs cannot rely on color alone; shape, pose,
+outline, motion, iconography, or another non-color cue must remain readable in grayscale and common
+color-deficiency simulations.
+
+Release 5 automated implementation remains complete, but its interactive packaged Windows
+certification remains required. Release 6 does not retroactively mark that gate complete.
 
 ## Explicitly out of scope
 

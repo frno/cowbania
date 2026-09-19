@@ -74,7 +74,7 @@ static class Tests
             clock.Advance(0f, PresentationAnimationState.BanditNotice);
             Assert(clock.CurrentState == PresentationAnimationState.BanditNotice &&
                    clock.CurrentFrameIndex == 0 &&
-                   clock.CurrentFrame().AssetKey == "idle_1.png",
+                   clock.CurrentFrame().AssetKey == "Frontier/Bandit/notice_0.png",
                 "changing enemy state resets the clock to the authored notice pose");
         });
 
@@ -929,7 +929,7 @@ static class Tests
                 "large elapsed deltas preserve the fractional frame remainder");
         });
 
-        Run("release one player animation states preserve the placeholder contract", () =>
+        Run("frontier player animation states preserve the stable contract", () =>
         {
             var expected = new[]
             {
@@ -947,72 +947,164 @@ static class Tests
                 "player states contain idle, run, jump, fall, shoot, reload, hurt, and dash in contract order");
         });
 
-        Run("placeholder animation clips retain distinct asset keys", () =>
+        Run("frontier player clips map every authored frame and timing", () =>
         {
-            var clips = new[]
+            var expected = new[]
             {
-                new AnimationClip("idle", new[] { new AnimationFrame("idle_0"), new AnimationFrame("idle_1") }, 8f),
-                new AnimationClip("run", new[] { new AnimationFrame("run_0"), new AnimationFrame("run_1") }, 12f),
-                new AnimationClip("jump", new[] { new AnimationFrame("jump_0") }, 1f, AnimationPlaybackMode.OneShot),
-                new AnimationClip("fall", new[] { new AnimationFrame("fall_0") }, 1f),
-                new AnimationClip("shoot", new[] { new AnimationFrame("shoot_0"), new AnimationFrame("shoot_1") }, 12f, AnimationPlaybackMode.OneShot),
-                new AnimationClip("reload", new[] { new AnimationFrame("reload_0"), new AnimationFrame("reload_1") }, 8f, AnimationPlaybackMode.OneShot),
-                new AnimationClip("hurt", new[] { new AnimationFrame("hurt_0") }, 1f, AnimationPlaybackMode.OneShot)
+                (PresentationAnimationState.Idle, "player_idle", "idle", 4, 6f, AnimationPlaybackMode.Loop),
+                (PresentationAnimationState.Run, "player_run", "run", 6, 12f, AnimationPlaybackMode.Loop),
+                (PresentationAnimationState.Jump, "player_jump", "jump", 2, 8f, AnimationPlaybackMode.Loop),
+                (PresentationAnimationState.Fall, "player_fall", "fall", 2, 8f, AnimationPlaybackMode.Loop),
+                (PresentationAnimationState.Shoot, "player_shoot", "shoot", 3, 15f, AnimationPlaybackMode.OneShot),
+                (PresentationAnimationState.Reload, "player_reload", "reload", 4, 4f / GameWorld.ReloadDuration, AnimationPlaybackMode.OneShot),
+                (PresentationAnimationState.Hurt, "player_hurt", "hurt", 2, 10f, AnimationPlaybackMode.OneShot),
+                (PresentationAnimationState.Dash, "player_dash", "dash", 3, 15f, AnimationPlaybackMode.OneShot)
             };
 
-            Assert(clips.SelectMany(clip => clip.Frames).Select(frame => frame.AssetKey).Distinct().Count() == 11,
-                "player placeholder clips do not alias one another's frame assets");
-            Assert(clips.Single(clip => clip.Name == "idle").PlaybackMode == AnimationPlaybackMode.Loop,
-                "idle is a looping placeholder clip");
-            Assert(clips.Single(clip => clip.Name == "shoot").PlaybackMode == AnimationPlaybackMode.OneShot,
-                "shoot is a one-shot placeholder clip");
+            Assert(FrontierAnimationCatalog.PlayerClips.Count == expected.Length,
+                "the player catalog contains exactly the eight stable states");
+            foreach (var (state, name, frameName, count, fps, mode) in expected)
+            {
+                var clip = FrontierAnimationCatalog.For(state);
+                Assert(clip.Name == name, $"{state} retains its stable clip name");
+                Assert(clip.Frames.Length == count, $"{state} has its authored frame count");
+                Assert(MathF.Abs(clip.FramesPerSecond - fps) < 0.0001f, $"{state} has its authored timing");
+                Assert(clip.PlaybackMode == mode, $"{state} has its authored playback mode");
+                Assert(clip.Frames.Select(frame => frame.AssetKey).SequenceEqual(
+                        Enumerable.Range(0, count)
+                            .Select(index => $"Frontier/Player/{frameName}_{index}.png")),
+                    $"{state} maps every exact Frontier player asset");
+            }
+
+            var reload = FrontierAnimationCatalog.For(PresentationAnimationState.Reload);
+            Assert(MathF.Abs(reload.FrameDuration * reload.Frames.Length - GameWorld.ReloadDuration) < 0.0001f,
+                "reload clip duration exactly matches the authoritative gameplay reload duration");
         });
 
-        Run("selected animation clips preserve transient playback and actor anchors", () =>
+        Run("frontier actor metadata preserves feet and effect anchors", () =>
         {
-            var shoot = PlaceholderAnimationCatalog.For(PresentationAnimationState.Shoot);
-            var reload = PlaceholderAnimationCatalog.For(PresentationAnimationState.Reload);
-            var idle = PlaceholderAnimationCatalog.For(PresentationAnimationState.Idle);
-
-            Assert(shoot.PlaybackMode == AnimationPlaybackMode.OneShot &&
-                   reload.PlaybackMode == AnimationPlaybackMode.OneShot,
-                "shoot and reload remain transient one-shot clips");
-            Assert(idle.PlaybackMode == AnimationPlaybackMode.Loop,
-                "idle remains a looping clip");
-            Assert(shoot.Frames[0].AssetKey == "shoot_0.png" &&
-                   reload.Frames[0].AssetKey == "reload_0.png",
-                "transient states retain their authored frame assets");
-
-            var feet = RoomCatalog.Hub.Spawn;
-            var muzzle = feet + GameWorld.PlayerMuzzleOffset + Vector2.UnitX * GameWorld.PlayerMuzzleDistance;
-            Assert(muzzle.Y == feet.Y + GameWorld.PlayerMuzzleOffset.Y,
-                "muzzle anchor remains vertically offset from actor feet");
-            Assert(muzzle.X == feet.X + GameWorld.PlayerMuzzleDistance,
-                "muzzle anchor remains horizontally extended from actor feet");
+            Assert(FrontierAnimationCatalog.PlayerMetadata.SourceFeetAnchor == new Vector2(8, 13),
+                "player sprites preserve the required source feet anchor");
+            Assert(FrontierAnimationCatalog.BanditMetadata.SourceFeetAnchor == new Vector2(8, 13) &&
+                   FrontierAnimationCatalog.WildlifeMetadata.SourceFeetAnchor == new Vector2(8, 13) &&
+                   FrontierAnimationCatalog.PickupMetadata.SourceFeetAnchor == new Vector2(8, 13),
+                "all Frontier actors expose the shared source feet anchor");
+            Assert(FrontierAnimationCatalog.PlayerMetadata.SourceEffectAnchor == new Vector2(13, 7),
+                "player metadata exposes the authored source muzzle anchor");
+            Assert(FrontierAnimationCatalog.BanditMetadata.SourceEffectAnchor == new Vector2(14, 7),
+                "bandit metadata exposes its authored muzzle anchor");
+            Assert(FrontierAnimationCatalog.WildlifeMetadata.SourceEffectAnchor == new Vector2(14, 9),
+                "wildlife metadata exposes its authored lunge effect anchor");
+            Assert(FrontierAnimationCatalog.PickupMetadata.SourceEffectAnchor == new Vector2(8, 8),
+                "pickup metadata exposes its authored center effect anchor");
         });
 
-        Run("enemy idle and pickup float placeholder clips loop", () =>
+        Run("frontier enemy clips map both archetypes without inference", () =>
         {
-            var enemyIdle = new AnimationClip(
-                "enemy_idle",
-                new[] { new AnimationFrame("enemy_idle_0"), new AnimationFrame("enemy_idle_1") },
-                6f);
-            var pickupFloat = new AnimationClip(
-                "pickup_float",
-                new[] { new AnimationFrame("float_0"), new AnimationFrame("float_1") },
-                5f);
+            AssertEnemyClips(
+                FrontierAnimationCatalog.BanditClips,
+                "Bandit",
+                new[]
+                {
+                    (PresentationAnimationState.BanditPatrol, "patrol", 4, 6f, AnimationPlaybackMode.Loop),
+                    (PresentationAnimationState.BanditNotice, "notice", 2, 8f, AnimationPlaybackMode.OneShot),
+                    (PresentationAnimationState.BanditAttack, "attack", 4, 12f, AnimationPlaybackMode.OneShot),
+                    (PresentationAnimationState.EnemyDefeated, "defeated", 2, 6f, AnimationPlaybackMode.OneShot)
+                });
+            AssertEnemyClips(
+                FrontierAnimationCatalog.WildlifeClips,
+                "Wildlife",
+                new[]
+                {
+                    (PresentationAnimationState.WildlifePatrol, "patrol", 4, 8f, AnimationPlaybackMode.Loop),
+                    (PresentationAnimationState.WildlifeNotice, "notice", 2, 8f, AnimationPlaybackMode.OneShot),
+                    (PresentationAnimationState.WildlifeLunge, "lunge", 4, 12f, AnimationPlaybackMode.OneShot),
+                    (PresentationAnimationState.EnemyDefeated, "defeated", 2, 6f, AnimationPlaybackMode.OneShot)
+                });
 
-            var enemyClock = new AnimationClock();
-            var pickupClock = new AnimationClock();
-            enemyClock.Advance(0.5f, enemyIdle);
-            pickupClock.Advance(0.5f, pickupFloat);
+            var defeatedBandit = new EnemyState(
+                "bandit", EnemyArchetype.Bandit, EnemyBehaviorState.Defeated, EnemyAttackPhase.None,
+                Vector2.Zero, Vector2.Zero, 1, 0, false, 0, 0);
+            var defeatedWildlife = defeatedBandit with
+            {
+                Id = "wildlife",
+                Archetype = EnemyArchetype.Wildlife
+            };
+            Assert(FrontierAnimationCatalog.ForEnemy(defeatedBandit).Frames[0].AssetKey ==
+                   "Frontier/Bandit/defeated_0.png",
+                "defeated bandit selection remains archetype-specific");
+            Assert(FrontierAnimationCatalog.ForEnemy(defeatedWildlife).Frames[0].AssetKey ==
+                   "Frontier/Wildlife/defeated_0.png",
+                "defeated wildlife selection remains archetype-specific");
 
-            Assert(!enemyClock.IsComplete && !pickupClock.IsComplete,
-                "enemy idle and pickup float remain active looping clips");
-            Assert(enemyClock.CurrentFrame(enemyIdle).AssetKey == "enemy_idle_1",
-                "enemy idle advances to its second placeholder frame");
-            Assert(pickupClock.CurrentFrame(pickupFloat).AssetKey == "float_0",
-                "pickup float wraps deterministically after a full cycle");
+            var clock = new PresentationAnimationClock();
+            clock.Advance(0, defeatedWildlife);
+            Assert(clock.CurrentClip == FrontierAnimationCatalog.WildlifeClips[PresentationAnimationState.EnemyDefeated] &&
+                   clock.CurrentFrame().AssetKey == "Frontier/Wildlife/defeated_0.png",
+                "snapshot-driven clocks retain the selected enemy archetype clip");
+        });
+
+        Run("frontier pickup clips cover currency health and ammo", () =>
+        {
+            var expected = new[]
+            {
+                (PickupType.Currency, "Currency"),
+                (PickupType.Health, "Health"),
+                (PickupType.ReserveAmmo, "Ammo")
+            };
+
+            Assert(FrontierAnimationCatalog.PickupClips.Count == expected.Length,
+                "the pickup catalog contains exactly the three gameplay pickup types");
+            foreach (var (type, folder) in expected)
+            {
+                var clip = FrontierAnimationCatalog.ForPickup(type);
+                Assert(clip.Frames.Length == 4 && clip.PlaybackMode == AnimationPlaybackMode.Loop,
+                    $"{type} uses a four-frame looping float clip");
+                Assert(MathF.Abs(clip.FrameDuration - 1f / 6f) < 0.0001f,
+                    $"{type} exposes the authored frame duration");
+                Assert(clip.Frames.Select(frame => frame.AssetKey).SequenceEqual(
+                        Enumerable.Range(0, 4)
+                            .Select(index => $"Frontier/Pickup/{folder}/float_{index}.png")),
+                    $"{type} maps every exact Frontier pickup asset");
+            }
+
+            var clock = new PresentationAnimationClock();
+            clock.Advance(0.2f, PickupType.Currency);
+            clock.Advance(0f, PickupType.Health);
+            Assert(clock.CurrentFrameIndex == 0 &&
+                   clock.CurrentFrame().AssetKey == "Frontier/Pickup/Health/float_0.png",
+                "changing pickup type resets to the correct snapshot-selected clip");
+        });
+
+        Run("frontier clocks freeze externally and equivalent progression matches", () =>
+        {
+            var clip = FrontierAnimationCatalog.For(PresentationAnimationState.Run);
+            var first = new AnimationClock();
+            var second = new AnimationClock();
+
+            foreach (var elapsed in new[] { 0.03f, 0f, 0.07f, 0.15f, 0.41f })
+            {
+                first.Advance(elapsed, clip);
+                second.Advance(elapsed, clip);
+            }
+
+            Assert(first.CurrentFrameIndex == second.CurrentFrameIndex &&
+                   first.ElapsedSeconds == second.ElapsedSeconds &&
+                   first.CurrentFrame(clip) == second.CurrentFrame(clip),
+                "equivalent clips and elapsed inputs produce equivalent frames");
+
+            var frozenFrame = first.CurrentFrameIndex;
+            var frozenElapsed = first.ElapsedSeconds;
+            first.Advance(0f, clip);
+            Assert(first.CurrentFrameIndex == frozenFrame && first.ElapsedSeconds == frozenElapsed,
+                "not advancing presentation time leaves the clock externally freezeable");
+
+            var oneShot = FrontierAnimationCatalog.For(PresentationAnimationState.Shoot);
+            var oneShotClock = new AnimationClock();
+            oneShotClock.Advance(oneShot.FrameDuration * oneShot.Frames.Length, oneShot);
+            Assert(oneShotClock.IsComplete &&
+                   oneShotClock.CurrentFrameIndex == oneShot.Frames.Length - 1,
+                "Frontier one-shots complete and clamp on their final authored frame");
         });
 
         Run("wildlife active contact deals one hit and invulnerability blocks repeat damage", () =>
@@ -1287,6 +1379,27 @@ static class Tests
         if (!condition)
         {
             throw new InvalidOperationException(message);
+        }
+    }
+
+    static void AssertEnemyClips(
+        IReadOnlyDictionary<PresentationAnimationState, AnimationClip> clips,
+        string actorFolder,
+        IEnumerable<(PresentationAnimationState State, string FrameName, int Count, float Fps, AnimationPlaybackMode Mode)> expected)
+    {
+        var definitions = expected.ToArray();
+        Assert(clips.Count == definitions.Length, $"{actorFolder} has exactly its four stable clips");
+        foreach (var (state, frameName, count, fps, mode) in definitions)
+        {
+            var clip = clips[state];
+            Assert(clip.Frames.Length == count, $"{actorFolder} {frameName} has its authored frame count");
+            Assert(MathF.Abs(clip.FramesPerSecond - fps) < 0.0001f,
+                $"{actorFolder} {frameName} has its authored timing");
+            Assert(clip.PlaybackMode == mode, $"{actorFolder} {frameName} has its authored playback mode");
+            Assert(clip.Frames.Select(frame => frame.AssetKey).SequenceEqual(
+                    Enumerable.Range(0, count)
+                        .Select(index => $"Frontier/{actorFolder}/{frameName}_{index}.png")),
+                $"{actorFolder} {frameName} maps every exact Frontier asset");
         }
     }
 
