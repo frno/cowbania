@@ -193,3 +193,23 @@
 - Integer identity hashes can collide and suppress distinct failures, while duplicate startup reporting obscures the diagnostic trail.
 - The available evidence narrowed the jump failure to the native WAV decode boundary, so diagnostics must preserve deterministic simulation outcomes and the complete audio lifecycle without weakening fatal-process behavior.
 - Durable, flushed runtime and startup logs provide actionable evidence across both normal launch and early-failure paths.
+
+### 2026-09-19T18:23:04.877+02:00: Release 5 enemy encounters, managed audio fallback, and certification boundary (consolidated)
+**By:** game-director, gameplay-systems, visual-presentation, monogame-runtime, quality-engineering, runtime-diagnostics
+
+**What:**
+- Release 5 is the deterministic enemy encounter pass. The four existing placements become stable authored bandit and wildlife encounters without adding rooms, spawn positions, weapons, bosses, saves, required art, or a content-pipeline dependency.
+- Core snapshots expose stable enemy identity, archetype, behavior and attack phases, transform, health, facing, timers, and projectile ownership. Bandits use notice, telegraph, one hostile shot, and recovery; wildlife use notice, telegraph, a bounded active lunge, and recovery. Enemies remain within room/support/leash bounds, defeated enemies are inactive, and hostile damage is single-hit.
+- Death and ordinary room re-entry reset the relevant encounter and clear projectiles while preserving Release 4 run continuity. Pause and objective completion freeze enemy simulation, projectile behavior, presentation clocks, damage, and sound requests. Equivalent worlds and inputs produce equivalent snapshots and outcomes.
+- Presentation consumes core snapshots only. Existing frames, stable palette tints, facing, state-specific poses, primitive telegraph markers, hostile-projectile styling, and reset-on-state-change animation clocks distinguish bandits, wildlife, and attack phases without changing collision or anchors.
+- The host keys presentation by stable enemy ID, renders telegraphs and hostile projectiles from snapshots, and emits feedback-only audio after deterministic updates. Enemy AI never waits on audio.
+- `AudioEventBus` now parses RIFF/WAVE PCM data in managed code rather than using MonoGame's native WAV file decoder. Successful sounds are cached; missing, invalid, throwing, or unsuccessful events record terminal failure, become disabled, and thereafter fall back immediately to silence.
+- The user-accessible `--fatal-probe` flag and its deliberately terminating subprocess test were removed. Production `Game.Run`, `AppDomain.UnhandledException`, and unobserved-task handlers remain, with non-killing coverage for formatting, deduplication, aggregate expansion, observation, fallback records, and sink durability.
+- Automated Release 5 coverage exercises enemy timelines, ownership and damage, leash/support bounds, defeated inactivity, resets, pause/completion freezes, presentation contracts, and audio disable-to-silence behavior. The solution build and both Core and Host suites pass.
+- Automated implementation is complete. Release 5 certification still requires an interactive packaged Windows keyboard-to-shortcut run confirming both archetypes, readable and avoidable telegraphs, pause/completion freeze, resets, objective completion, responsive audio behavior, and terminal jump-audio evidence.
+
+**Why:**
+- Releases 1–4 established the animation, stage, feedback, and first-playable loop baseline; deterministic differentiated encounters close the largest remaining gameplay gap while preserving core authority and authored room geometry.
+- Snapshot-only presentation prevents host-side AI inference, and managed PCM parsing removes the observed native decode boundary while retaining fail-safe silence and durable diagnostics.
+- Removing the controlled fatal probe avoids disrupting routine launches and test flow without weakening production fatal handling.
+- Automated tests can verify deterministic and managed contracts, but cannot certify responsiveness across the packaged Windows desktop, input, graphics, and audio path.

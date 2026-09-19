@@ -124,7 +124,25 @@ rethrow/nonzero exit. Unobserved task exceptions are logged and then explicitly 
 to prevent their finalizer-thread escalation; `Game.Run` and AppDomain fatal exceptions are never
 swallowed. The earlier `Cowbania.Host.startup.log` remains available beside it so process-entry,
 logger-initialization, and fatal-reporting failures are still visible. A logging setup failure is
-reported there but does not prevent the game from launching.
+reported there but does not prevent the game from launching. Automated coverage exercises fatal
+formatting, deduplication, aggregate expansion, observation, and sink durability through in-process
+test seams; routine tests and launches do not deliberately terminate the host.
+
+## Next release: Release 5 enemy encounters
+
+Release 5 turns the existing enemy placements into a small, readable combat encounter pass without
+adding rooms, weapons, bosses, saves, or new content-pipeline dependencies. The existing four spawn
+slots are assigned between bandit and wildlife archetypes. Both use deterministic
+patrol/notice/chase/attack/defeated state, while bandits provide a telegraphed ranged threat and
+wildlife provide a telegraphed close-range lunge. Enemies remain constrained to their authored room
+and leash, and the current damage, invulnerability, checkpoint, shortcut, pause, and completion
+contracts remain unchanged.
+
+The gameplay-stall instrumentation and fatal exception coverage are complete and passing. The
+reported jump failure itself is only narrowed to native `SFX_Jump.wav` decoding, not fixed. Enemy
+work may proceed immediately, but Release 5 cannot be certified until a manual packaged-build run
+either completes the keyboard-to-shortcut loop with jump audio enabled or records a durable terminal
+audio boundary and ships a verified non-stalling fallback.
 
 ## Explicitly out of scope
 

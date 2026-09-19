@@ -36,6 +36,48 @@ static class Tests
             Assert(PresentationStateSelector.SelectPickup() == PresentationAnimationState.PickupFloat, "pickup selection");
         });
 
+        Run("enemy presentation selects readable deterministic telegraphs", () =>
+        {
+            var banditTelegraph = PresentationStateSelector.SelectEnemy(new EnemyState(
+                "bandit", EnemyArchetype.Bandit, EnemyBehaviorState.Attack, EnemyAttackPhase.Telegraph,
+                Vector2.Zero, Vector2.Zero, -1, 2, true, 0.5f, 0.25f));
+            var wildlifeActive = PresentationStateSelector.SelectEnemy(new EnemyState(
+                "wildlife", EnemyArchetype.Wildlife, EnemyBehaviorState.Attack, EnemyAttackPhase.Active,
+                Vector2.Zero, Vector2.UnitX, 1, 2, true, 0.5f, 0.25f));
+            var defeated = PresentationStateSelector.SelectEnemy(new EnemyState(
+                "defeated", EnemyArchetype.Bandit, EnemyBehaviorState.Defeated, EnemyAttackPhase.None,
+                Vector2.Zero, Vector2.Zero, 0, 0, false, 1f, 0f));
+
+            Assert(banditTelegraph.AnimationState == PresentationAnimationState.BanditAttack &&
+                   banditTelegraph.TelegraphMarker == EnemyTelegraphMarker.BanditAimLine &&
+                   banditTelegraph.FacingDirection == -1 &&
+                   !banditTelegraph.AttackActive,
+                "bandit telegraph selects its ranged aim cue without becoming active");
+            Assert(wildlifeActive.AnimationState == PresentationAnimationState.WildlifeLunge &&
+                   wildlifeActive.TelegraphMarker == EnemyTelegraphMarker.WildlifeLungeTrail &&
+                   wildlifeActive.AttackActive,
+                "wildlife active attack selects its lunge trail and active flag");
+            Assert(defeated.AnimationState == PresentationAnimationState.EnemyDefeated &&
+                   defeated.TelegraphMarker == EnemyTelegraphMarker.None &&
+                   defeated.FacingDirection == 1,
+                "defeated enemies suppress telegraphs and normalize facing");
+            Assert(banditTelegraph.PaletteTint != wildlifeActive.PaletteTint,
+                "bandit and wildlife use stable distinct palette tints");
+        });
+
+        Run("enemy presentation clocks reset when the selected state changes", () =>
+        {
+            var clock = new PresentationAnimationClock();
+            clock.Advance(0.25f, PresentationAnimationState.BanditPatrol);
+            Assert(clock.CurrentFrameIndex == 1, "bandit patrol advances deterministically");
+
+            clock.Advance(0f, PresentationAnimationState.BanditNotice);
+            Assert(clock.CurrentState == PresentationAnimationState.BanditNotice &&
+                   clock.CurrentFrameIndex == 0 &&
+                   clock.CurrentFrame().AssetKey == "idle_1.png",
+                "changing enemy state resets the clock to the authored notice pose");
+        });
+
         Run("player animation selector covers idle run jump fall shoot reload hurt and dash", () =>
         {
             Assert(PlayerAnimationStateSelector.Select(Vector2.Zero, true) == PlayerAnimationState.Idle,
@@ -367,6 +409,274 @@ static class Tests
                 "branch creates one enemy for each configured placement");
             Assert(game.Enemies.Select(enemy => enemy.Position).SequenceEqual(RoomCatalog.Branch.EnemySpawns),
                 "branch enemies start at the authored placements");
+        });
+
+        Run("enemy definitions assign stable bandit and wildlife encounters", () =>
+        {
+            Assert(RoomCatalog.Hub.EnemyDefinitions.Select(enemy => enemy.Archetype)
+                    .SequenceEqual(new[] { EnemyArchetype.Bandit, EnemyArchetype.Wildlife }),
+                "hub slots are assigned bandit then wildlife");
+            Assert(RoomCatalog.Branch.EnemyDefinitions.Select(enemy => enemy.Archetype)
+                    .SequenceEqual(new[] { EnemyArchetype.Wildlife, EnemyArchetype.Bandit }),
+                "branch slots are assigned wildlife then bandit");
+            Assert(RoomCatalog.Hub.EnemyDefinitions.Concat(RoomCatalog.Branch.EnemyDefinitions)
+                    .Select(enemy => enemy.Id).Distinct().Count() == 4,
+                "all authored enemy ids are stable and unique");
+            Assert(RoomCatalog.Hub.EnemyDefinitions.Concat(RoomCatalog.Branch.EnemyDefinitions)
+                    .All(enemy => enemy.HorizontalLeash == 120),
+                "every authored enemy uses the frozen horizontal leash");
+        });
+
+        Run("enemy snapshots expose deterministic notice and chase state", () =>
+        {
+            var game = new GameWorld();
+            var enemy = game.Enemies[0];
+            Assert(enemy.Id == "hub-bandit-0" && enemy.Archetype == EnemyArchetype.Bandit,
+                "the first hub snapshot identifies its authored definition");
+            Assert(enemy.BehaviorState == EnemyBehaviorState.Patrol &&
+                   enemy.AttackPhase == EnemyAttackPhase.None &&
+                   enemy.FacingDirection is -1 or 1,
+                "new enemies begin in patrol with a valid facing");
+
+            SetProperty(game, nameof(GameWorld.PlayerPosition), new Vector2(100, 480));
+            game.Update(default, 0.1f);
+            Assert(game.Enemies[0].BehaviorState == EnemyBehaviorState.Notice,
+                "a nearby player moves the enemy into notice");
+            game.Update(default, GameWorld.EnemyNoticeDuration);
+            Assert(game.Enemies[0].BehaviorState == EnemyBehaviorState.Chase,
+                "notice lasts for the frozen elapsed-time duration");
+        });
+
+        Run("bandit attack telegraphs then emits one hostile projectile", () =>
+        {
+            var game = new GameWorld();
+            SetProperty(game, nameof(GameWorld.PlayerPosition), new Vector2(280, 480));
+            game.Update(default, 0f);
+            game.Update(default, GameWorld.EnemyNoticeDuration);
+            game.Update(default, 0f);
+
+            Assert(game.Enemies[0].BehaviorState == EnemyBehaviorState.Attack &&
+                   game.Enemies[0].AttackPhase == EnemyAttackPhase.Telegraph,
+                "bandit enters a telegraphed attack only within its ranged window");
+
+            game.Update(default, GameWorld.BanditTelegraphDuration);
+            var hostile = game.Projectiles.Single(projectile => projectile.Owner == ProjectileOwner.Enemy);
+            Assert(hostile.Kind == ProjectileKind.BanditBullet &&
+                   hostile.SourceId == game.Enemies[0].Id,
+                "bandit projectile identifies its owner kind and source");
+            Assert(hostile.Velocity.Length() == GameWorld.BanditProjectileSpeed,
+                "bandit projectile uses the frozen deterministic speed");
+
+            game.Update(default, 0.01f);
+            Assert(game.Projectiles.Count(projectile => projectile.Owner == ProjectileOwner.Enemy) == 1,
+                "one bandit attack emits at most one projectile");
+        });
+
+        Run("wildlife lunge damage occurs once during active attack", () =>
+        {
+            var game = new GameWorld();
+            SetProperty(game, nameof(GameWorld.Room), RoomCatalog.Branch.Id);
+            SetProperty(game, nameof(GameWorld.PlayerPosition), new Vector2(600, 480));
+            game.Update(default, 0f);
+            game.Update(default, GameWorld.EnemyNoticeDuration);
+            game.Update(default, 0f);
+            game.Update(default, GameWorld.WildlifeTelegraphDuration);
+
+            Assert(game.Enemies[0].Archetype == EnemyArchetype.Wildlife &&
+                   game.Enemies[0].AttackPhase == EnemyAttackPhase.Active,
+                "wildlife enters its active lunge after telegraphing");
+
+            var health = game.Health;
+            game.Update(default, 0.1f);
+            game.Update(default, 0.1f);
+            Assert(game.Health == health - 1,
+                "one active lunge can consume at most one health");
+            game.Update(default, 0.1f);
+            Assert(game.Enemies[0].AttackPhase == EnemyAttackPhase.Recovery,
+                "wildlife completes the active window before recovery");
+        });
+
+        Run("room re-entry resets the encounter and clears every projectile", () =>
+        {
+            var game = new GameWorld();
+            SetProperty(game, nameof(GameWorld.Enemy), game.Enemy with
+            {
+                Position = new Vector2(600, 480),
+                Health = 0,
+                Alive = false,
+                BehaviorState = EnemyBehaviorState.Defeated
+            });
+            game.Update(new InputFrame(0, false, false, Vector2.UnitX, true, false, false, false), 0f);
+            Assert(game.Projectiles.Count == 1 && !game.Enemies[0].Alive,
+                "the pre-transition encounter contains transient projectile and defeat state");
+
+            SetProperty(game, nameof(GameWorld.PlayerPosition), new Vector2(1570, 480));
+            InvokePrivate(game, "Interact");
+            SetProperty(game, nameof(GameWorld.PlayerPosition), RoomCatalog.Branch.Shortcut);
+            InvokePrivate(game, "Interact");
+
+            Assert(game.Room == RoomCatalog.Hub.Id && game.Projectiles.Count == 0,
+                "room transition clears projectiles before re-entry");
+            Assert(game.Enemies.All(enemy =>
+                    enemy.Alive &&
+                    enemy.Health == GameWorld.EnemyMaximumHealth &&
+                    enemy.BehaviorState == EnemyBehaviorState.Patrol &&
+                    enemy.AttackPhase == EnemyAttackPhase.None &&
+                    enemy.Position == RoomCatalog.Hub.EnemyDefinitions
+                        .Single(definition => definition.Id == enemy.Id).Spawn),
+                "re-entering a room restores its complete authored encounter");
+        });
+
+        Run("release five attack timelines remain deterministic", () =>
+        {
+            var first = new GameWorld();
+            var second = new GameWorld();
+            SetProperty(first, nameof(GameWorld.PlayerPosition), new Vector2(280, 480));
+            SetProperty(second, nameof(GameWorld.PlayerPosition), new Vector2(280, 480));
+
+            foreach (var elapsed in new[]
+                     {
+                         0f,
+                         GameWorld.EnemyNoticeDuration,
+                         0f,
+                         GameWorld.BanditTelegraphDuration,
+                         0.05f,
+                         GameWorld.BanditRecoveryDuration,
+                         0.1f
+                     })
+            {
+                first.Update(default, elapsed);
+                second.Update(default, elapsed);
+                Assert(CaptureWorld(first) == CaptureWorld(second),
+                    "equivalent enemy updates preserve snapshots, projectiles, health, and timers");
+            }
+
+            Assert(first.Enemies.All(enemy =>
+                    enemy.StateTimerNormalized is >= 0 and <= 1 &&
+                    enemy.AttackTimerNormalized is >= 0 and <= 1),
+                "public enemy timers remain normalized throughout the attack timeline");
+        });
+
+        Run("hostile projectiles damage once and respect player invulnerability", () =>
+        {
+            var game = new GameWorld();
+            var playerCenter = game.PlayerPosition + new Vector2(0, -GameWorld.PlayerBodyHeight / 2f);
+            var projectiles = GetField<List<ProjectileState>>(game, "projectiles");
+            projectiles.Add(new ProjectileState(
+                playerCenter, Vector2.Zero, 1,
+                ProjectileOwner.Enemy, ProjectileKind.BanditBullet, "first-bandit"));
+            projectiles.Add(new ProjectileState(
+                playerCenter, Vector2.Zero, 1,
+                ProjectileOwner.Enemy, ProjectileKind.BanditBullet, "second-bandit"));
+
+            game.Update(default, 0f);
+
+            Assert(game.Health == GameWorld.MaximumHealth - 1,
+                "simultaneous hostile hits consume only one health during invulnerability");
+            Assert(game.Projectiles.Count == 0,
+                "each hostile projectile is removed on its first player contact");
+        });
+
+        Run("enemy movement remains inside authored room and leash bounds", () =>
+        {
+            var game = new GameWorld();
+            for (var step = 0; step < 120; step++)
+            {
+                SetProperty(game, nameof(GameWorld.PlayerPosition),
+                    new Vector2(step % 2 == 0 ? 12 : 1588, RoomCatalog.Hub.Ground.Y));
+                game.Update(default, 0.05f);
+
+                foreach (var pair in game.Enemies.Zip(RoomCatalog.Hub.EnemyDefinitions))
+                {
+                    var minimum = MathF.Max(
+                        RoomCatalog.Hub.Bounds.X,
+                        pair.Second.Spawn.X - pair.Second.HorizontalLeash);
+                    var maximum = MathF.Min(
+                        RoomCatalog.Hub.Bounds.Right,
+                        pair.Second.Spawn.X + pair.Second.HorizontalLeash);
+                    Assert(pair.First.Position.X >= minimum && pair.First.Position.X <= maximum,
+                        $"{pair.First.Id} stays inside its authored horizontal leash");
+                    Assert(pair.First.Position.Y == pair.Second.Spawn.Y,
+                        $"{pair.First.Id} remains on authored support geometry");
+                    Assert(pair.First.FacingDirection is -1 or 1,
+                        $"{pair.First.Id} exposes a normalized facing direction");
+                }
+            }
+        });
+
+        Run("defeated enemies remain inert", () =>
+        {
+            var game = new GameWorld();
+            var defeated = game.Enemy with
+            {
+                BehaviorState = EnemyBehaviorState.Defeated,
+                AttackPhase = EnemyAttackPhase.None,
+                Health = 0,
+                Alive = false
+            };
+            SetProperty(game, nameof(GameWorld.Enemy), defeated);
+            SetProperty(game, nameof(GameWorld.PlayerPosition), new Vector2(280, 480));
+
+            game.Update(default, GameWorld.EnemyNoticeDuration + GameWorld.BanditTelegraphDuration + 1f);
+
+            Assert(!game.Enemy.Alive &&
+                   game.Enemy.BehaviorState == EnemyBehaviorState.Defeated &&
+                   game.Enemy.AttackPhase == EnemyAttackPhase.None,
+                "a defeated enemy cannot leave its terminal state");
+            Assert(game.Projectiles.All(projectile => projectile.SourceId != defeated.Id),
+                "a defeated bandit emits no later projectile");
+        });
+
+        Run("lethal hostile damage restores the authored encounter", () =>
+        {
+            var game = new GameWorld();
+            SetProperty(game, nameof(GameWorld.Enemy), game.Enemy with
+            {
+                BehaviorState = EnemyBehaviorState.Attack,
+                AttackPhase = EnemyAttackPhase.Telegraph,
+                Position = game.Enemy.Position + new Vector2(40, 0),
+                Health = 1
+            });
+            SetProperty(game, nameof(GameWorld.Health), 1);
+            GetField<List<ProjectileState>>(game, "projectiles").Add(new ProjectileState(
+                game.PlayerPosition + new Vector2(0, -GameWorld.PlayerBodyHeight / 2f),
+                Vector2.Zero,
+                1,
+                ProjectileOwner.Enemy,
+                ProjectileKind.BanditBullet,
+                "lethal-bandit"));
+
+            game.Update(default, 0f);
+
+            Assert(game.Health == GameWorld.MaximumHealth && game.Projectiles.Count == 0,
+                "death restores health and clears every projectile");
+            Assert(game.Enemies.All(enemy =>
+                    enemy.Alive &&
+                    enemy.Health == GameWorld.EnemyMaximumHealth &&
+                    enemy.BehaviorState == EnemyBehaviorState.Patrol &&
+                    enemy.AttackPhase == EnemyAttackPhase.None &&
+                    enemy.Position == RoomCatalog.Hub.EnemyDefinitions
+                        .Single(definition => definition.Id == enemy.Id).Spawn),
+                "death restores every destination-room enemy to its authored initial snapshot");
+        });
+
+        Run("completion freezes active encounters and hostile projectiles", () =>
+        {
+            var game = new GameWorld();
+            SetProperty(game, nameof(GameWorld.PlayerPosition), new Vector2(280, 480));
+            game.Update(default, 0f);
+            game.Update(default, GameWorld.EnemyNoticeDuration);
+            game.Update(default, 0f);
+            game.Update(default, GameWorld.BanditTelegraphDuration);
+            Assert(game.Projectiles.Any(projectile => projectile.Owner == ProjectileOwner.Enemy),
+                "the completion fixture includes an active hostile projectile");
+
+            SetProperty(game, nameof(GameWorld.Completed), true);
+            var completed = CaptureWorld(game);
+            game.Update(new InputFrame(1, true, true, Vector2.UnitX, true, true, true, false), 5f);
+
+            Assert(CaptureWorld(game) == completed,
+                "completion freezes enemy AI, attack timers, hostile projectiles, damage, and player state");
         });
 
         Run("projectile damage affects the intended enemy without damaging its sibling", () =>
@@ -705,18 +1015,31 @@ static class Tests
                 "pickup float wraps deterministically after a full cycle");
         });
 
-        Run("enemy contact deals one hit and invulnerability blocks repeat damage", () =>
+        Run("wildlife active contact deals one hit and invulnerability blocks repeat damage", () =>
         {
             var game = new GameWorld();
+            SetProperty(game, nameof(GameWorld.Room), RoomCatalog.Branch.Id);
             SetProperty(game, nameof(GameWorld.PlayerPosition), new Vector2(470, 480));
-            SetProperty(game, nameof(GameWorld.Enemy), new EnemyState(new Vector2(470, 480), 2, true));
+            SetProperty(game, nameof(GameWorld.Enemy), new EnemyState(
+                "branch-wildlife-0",
+                EnemyArchetype.Wildlife,
+                EnemyBehaviorState.Attack,
+                EnemyAttackPhase.Active,
+                new Vector2(470, 480),
+                Vector2.Zero,
+                1,
+                2,
+                true,
+                0,
+                0));
             SetProperty(game, nameof(GameWorld.Health), 3);
             SetField(game, "invulnerabilityTimer", 0f);
 
-            game.Update(new InputFrame(0, false, false, Vector2.UnitX, false, false, false, false), 0.1f);
-            Assert(game.Health == 2, "enemy contact consumes exactly one health point");
+            game.Update(default, 0f);
+            Assert(game.Health == 2, "active wildlife contact consumes exactly one health point");
 
-            game.Update(new InputFrame(0, false, false, Vector2.UnitX, false, false, false, false), 0.1f);
+            SetProperty(game, nameof(GameWorld.Enemy), game.Enemy with { AttackPhase = EnemyAttackPhase.Active });
+            game.Update(default, 0f);
             Assert(game.Health == 2, "invulnerability ignores repeated strikes during the window");
         });
 
@@ -847,10 +1170,7 @@ static class Tests
             InvokePrivate(game, "Interact");
 
             SetProperty(game, nameof(GameWorld.PlayerPosition), RoomCatalog.Hub.Checkpoint);
-            SetProperty(game, nameof(GameWorld.Health), 1);
-            SetProperty(game, nameof(GameWorld.Enemy), new EnemyState(RoomCatalog.Hub.Checkpoint, 2, true));
-            SetField(game, "invulnerabilityTimer", 0f);
-            game.Update(default, 0f);
+            InvokePrivate(game, "Respawn");
 
             Assert(game.Currency == 2 && game.ReserveAmmo == 1 && game.CollectedPickupCount == 4,
                 "death preserves collected pickups and economy counters");
@@ -876,11 +1196,7 @@ static class Tests
             SetProperty(game, nameof(GameWorld.CheckpointRoom), RoomCatalog.Branch.Id);
             SetProperty(game, nameof(GameWorld.CheckpointPosition), new Vector2(760, 480));
             SetProperty(game, nameof(GameWorld.PlayerPosition), new Vector2(760, 480));
-            SetProperty(game, nameof(GameWorld.Health), 1);
-            SetProperty(game, nameof(GameWorld.Enemy), new EnemyState(new Vector2(760, 480), 2, true));
-            SetField(game, "invulnerabilityTimer", 0f);
-
-            game.Update(new InputFrame(0, false, false, Vector2.UnitX, false, false, false, false), 0.1f);
+            InvokePrivate(game, "Respawn");
 
             Assert(game.Health == 3, "respawn restores full health after a lethal hit");
             Assert(game.PlayerPosition == game.CheckpointPosition, "respawn returns the player to the active checkpoint");
@@ -903,10 +1219,7 @@ static class Tests
                 "shortcut return establishes the authored hub checkpoint position");
 
             SetProperty(game, nameof(GameWorld.PlayerPosition), RoomCatalog.Hub.Checkpoint);
-            SetProperty(game, nameof(GameWorld.Health), 1);
-            SetProperty(game, nameof(GameWorld.Enemy), new EnemyState(RoomCatalog.Hub.Checkpoint, 2, true));
-            SetField(game, "invulnerabilityTimer", 0f);
-            game.Update(new InputFrame(0, false, false, Vector2.UnitX, false, false, false, false), 0f);
+            InvokePrivate(game, "Respawn");
 
             Assert(game.Room == RoomCatalog.Hub.Id,
                 "death after shortcut return respawns in the checkpoint's hub room");

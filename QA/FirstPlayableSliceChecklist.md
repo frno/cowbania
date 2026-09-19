@@ -23,7 +23,7 @@ The deterministic smoke executable in `tests/Cowbania.Core.Tests` covers:
 Run with `dotnet run --project tests/Cowbania.Core.Tests --no-restore` and
 `dotnet run --project tests/Cowbania.Host.Tests --no-restore`. The host suite verifies
 reference-only fatal deduplication, aggregate/unobserved-task reporting and observation,
-runtime/startup flush durability, playback failure boundaries, and a nonzero fatal subprocess exit.
+runtime/startup flush durability, and playback failure boundaries without terminating the host.
 
 ## Manual playtest
 
@@ -109,10 +109,64 @@ metadata and must not duplicate or modify collision geometry.
 - [ ] `Cowbania.Host.log` and `Cowbania.Host.startup.log` are created beside the executable.
 - [ ] The reported jump crash is documented as narrowed to the native `SFX_Jump.wav` decode
   boundary, not fixed.
-- [ ] A deliberate managed host failure records its source, termination state, full exception
-  chain, and durable fatal entry before exit; the process still fails rather than resuming.
+- [ ] In-process fatal-reporting tests record source, termination state, full exception chain, and
+  durable runtime/startup entries without deliberately terminating a host process.
+- [ ] Production `Game.Run` and `AppDomain.UnhandledException` paths still report and propagate
+  fatal failures rather than resuming execution.
 - [ ] Fatal deduplication suppresses only repeat reports of the same exception object; distinct
   failures cannot be hidden by a hash collision.
 - [ ] Unobserved task failures record the flattened aggregate details and are explicitly marked
   observed after logging. Audio logs contain request, decode begin/complete/failure, and playback
   begin/result/failure boundaries without frame-by-frame logging.
+
+## Release 5 enemy encounter acceptance
+
+- [ ] The four existing `RoomCatalog` enemy spawn slots have authored bandit or wildlife
+  archetypes; Release 5 adds no rooms or spawn positions.
+- [ ] Every living enemy deterministically transitions through patrol, notice, chase, and attack,
+  and exposes its current archetype, behavior state, facing, and attack telegraph to presentation.
+- [ ] A bandit attacks at range only after a visible telegraph; its projectile can be avoided and
+  applies at most one health loss during the player's invulnerability window.
+- [ ] Wildlife closes distance and lunges only after a visible telegraph; it returns to chase or
+  patrol after the attack window rather than continuously damaging the player.
+- [ ] Enemies stay inside their room bounds and authored leash, remain supported by room geometry,
+  and do not move or advance timers while paused or after objective completion.
+- [ ] Two equivalent input/time sequences produce identical enemy states, attack timings,
+  projectiles, player damage, and defeat results.
+- [ ] Player projectiles still damage only the intended enemy, defeated enemies cannot attack, and
+  respawn behavior follows the explicitly tested Release 5 encounter reset contract.
+- [ ] Bandit and wildlife threats are distinguishable using the existing placeholder art plus
+  palette, pose, facing, and telegraph treatment; no new asset pipeline is required.
+- [ ] The complete existing keyboard-to-shortcut objective remains playable with the encounter
+  pass enabled, and all existing deterministic tests continue to pass.
+- [ ] A packaged Windows manual run with jump audio enabled completes without a post-startup stall.
+  If native WAV decoding fails, both diagnostic logs contain a terminal decode/playback boundary
+  and the verified fallback keeps the game responsive.
+
+### Release 5 executable evidence
+
+Run:
+
+```powershell
+dotnet run --project tests\Cowbania.Core.Tests --no-restore
+dotnet run --project tests\Cowbania.Host.Tests --no-restore
+```
+
+The core executable verifies authored archetype assignments and stable IDs, deterministic
+patrol/notice/chase/attack timelines, normalized snapshot timers, bandit projectile ownership and
+speed, single-hit wildlife lunges, hostile-projectile invulnerability, leash/support bounds,
+defeated-enemy inactivity, room-entry and death resets, and pause/completion encounter freezes.
+The host executable verifies managed WAV parsing plus missing, invalid, and throwing audio events
+recording terminal failure boundaries, disabling retries, and falling back to silence.
+
+### Release 5 packaged certification evidence
+
+- [ ] Launch the packaged Windows build with `SFX_Jump.wav` enabled and retain both host log files.
+- [ ] Complete the hub-to-branch-to-hub shortcut loop while exercising jump, both enemy archetypes,
+  pause during a telegraph/projectile/lunge, player death, and room re-entry.
+- [ ] Confirm the window remains responsive and simulation continues after every audio request.
+- [ ] If jump audio cannot complete, verify a terminal decode/playback failure and later
+  `reason=disabled fallback=silence` entry for Jump; absence of a terminal boundary is a release
+  blocker.
+- [ ] Record the packaged build identifier, OS, result, and relevant log timestamps before marking
+  Release 5 certified.

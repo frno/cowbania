@@ -141,7 +141,14 @@ public enum PresentationAnimationState
     Hurt,
     Dash,
     EnemyIdle,
-    PickupFloat
+    PickupFloat,
+    BanditPatrol,
+    BanditNotice,
+    BanditAttack,
+    WildlifePatrol,
+    WildlifeNotice,
+    WildlifeLunge,
+    EnemyDefeated
 }
 
 public readonly record struct PlayerPresentationInput(
@@ -152,6 +159,30 @@ public readonly record struct PlayerPresentationInput(
     bool Reloading,
     bool Hurt,
     bool Dashing);
+
+public enum EnemyTelegraphMarker
+{
+    None,
+    NoticeBurst,
+    BanditAimLine,
+    BanditMuzzleFlash,
+    WildlifeLungeArrow,
+    WildlifeLungeTrail
+}
+
+public readonly record struct EnemyPaletteTint(byte Red, byte Green, byte Blue)
+{
+    public static EnemyPaletteTint Bandit { get; } = new(218, 164, 94);
+    public static EnemyPaletteTint Wildlife { get; } = new(139, 190, 105);
+    public static EnemyPaletteTint Defeated { get; } = new(110, 104, 100);
+}
+
+public readonly record struct EnemyPresentationDefinition(
+    PresentationAnimationState AnimationState,
+    EnemyPaletteTint PaletteTint,
+    EnemyTelegraphMarker TelegraphMarker,
+    int FacingDirection,
+    bool AttackActive);
 
 public static class PresentationStateSelector
 {
@@ -170,8 +201,92 @@ public static class PresentationStateSelector
     public static PresentationAnimationState SelectEnemy(bool alive) =>
         alive ? PresentationAnimationState.EnemyIdle : PresentationAnimationState.Idle;
 
+    public static EnemyPresentationDefinition SelectEnemy(EnemyState enemy)
+    {
+        var facingDirection = enemy.FacingDirection < 0 ? -1 : 1;
+        if (!enemy.Alive || enemy.BehaviorState == EnemyBehaviorState.Defeated)
+        {
+            return new EnemyPresentationDefinition(
+                PresentationAnimationState.EnemyDefeated,
+                EnemyPaletteTint.Defeated,
+                EnemyTelegraphMarker.None,
+                facingDirection,
+                false);
+        }
+
+        var animationState = enemy.Archetype switch
+        {
+            EnemyArchetype.Bandit when enemy.BehaviorState == EnemyBehaviorState.Notice =>
+                PresentationAnimationState.BanditNotice,
+            EnemyArchetype.Bandit when enemy.BehaviorState == EnemyBehaviorState.Attack =>
+                PresentationAnimationState.BanditAttack,
+            EnemyArchetype.Bandit => PresentationAnimationState.BanditPatrol,
+            EnemyArchetype.Wildlife when enemy.BehaviorState == EnemyBehaviorState.Notice =>
+                PresentationAnimationState.WildlifeNotice,
+            EnemyArchetype.Wildlife when enemy.BehaviorState == EnemyBehaviorState.Attack =>
+                PresentationAnimationState.WildlifeLunge,
+            _ => PresentationAnimationState.WildlifePatrol
+        };
+
+        var telegraphMarker = enemy.AttackPhase switch
+        {
+            EnemyAttackPhase.Telegraph when enemy.Archetype == EnemyArchetype.Bandit =>
+                EnemyTelegraphMarker.BanditAimLine,
+            EnemyAttackPhase.Telegraph => EnemyTelegraphMarker.WildlifeLungeArrow,
+            EnemyAttackPhase.Active when enemy.Archetype == EnemyArchetype.Bandit =>
+                EnemyTelegraphMarker.BanditMuzzleFlash,
+            EnemyAttackPhase.Active => EnemyTelegraphMarker.WildlifeLungeTrail,
+            _ when enemy.BehaviorState == EnemyBehaviorState.Notice =>
+                EnemyTelegraphMarker.NoticeBurst,
+            _ => EnemyTelegraphMarker.None
+        };
+
+        return new EnemyPresentationDefinition(
+            animationState,
+            enemy.Archetype == EnemyArchetype.Bandit
+                ? EnemyPaletteTint.Bandit
+                : EnemyPaletteTint.Wildlife,
+            telegraphMarker,
+            facingDirection,
+            enemy.AttackPhase == EnemyAttackPhase.Active);
+    }
+
     public static PresentationAnimationState SelectPickup() =>
         PresentationAnimationState.PickupFloat;
+}
+
+public sealed class PresentationAnimationClock
+{
+    private readonly AnimationClock clock = new();
+
+    public PresentationAnimationState? CurrentState { get; private set; }
+    public int CurrentFrameIndex => clock.CurrentFrameIndex;
+    public bool IsComplete => clock.IsComplete;
+
+    public void Reset()
+    {
+        CurrentState = null;
+        clock.Reset();
+    }
+
+    public void Advance(float elapsedSeconds, PresentationAnimationState state)
+    {
+        if (CurrentState != state)
+        {
+            CurrentState = state;
+            clock.Reset();
+        }
+
+        clock.Advance(elapsedSeconds, PlaceholderAnimationCatalog.For(state));
+    }
+
+    public AnimationFrame CurrentFrame()
+    {
+        if (CurrentState is not { } state)
+            throw new InvalidOperationException("Select an animation state before reading its frame.");
+
+        return clock.CurrentFrame(PlaceholderAnimationCatalog.For(state));
+    }
 }
 
 public static class PlaceholderAnimationCatalog
@@ -185,6 +300,13 @@ public static class PlaceholderAnimationCatalog
     private static readonly AnimationClip Hurt = new("hurt", new[] { new AnimationFrame("hurt_0.png") }, 1, AnimationPlaybackMode.OneShot);
     private static readonly AnimationClip EnemyIdle = new("enemy_idle", new[] { new AnimationFrame("idle_0.png"), new("idle_1.png") }, 4);
     private static readonly AnimationClip PickupFloat = new("pickup_float", new[] { new AnimationFrame("float_0.png"), new("float_1.png") }, 4);
+    private static readonly AnimationClip BanditPatrol = new("bandit_patrol", new[] { new AnimationFrame("idle_0.png"), new("idle_1.png") }, 4);
+    private static readonly AnimationClip BanditNotice = new("bandit_notice", new[] { new AnimationFrame("idle_1.png"), new("idle_0.png") }, 8, AnimationPlaybackMode.OneShot);
+    private static readonly AnimationClip BanditAttack = new("bandit_attack", new[] { new AnimationFrame("idle_1.png"), new("idle_0.png") }, 10);
+    private static readonly AnimationClip WildlifePatrol = new("wildlife_patrol", new[] { new AnimationFrame("idle_1.png"), new("idle_0.png") }, 6);
+    private static readonly AnimationClip WildlifeNotice = new("wildlife_notice", new[] { new AnimationFrame("idle_0.png"), new("idle_1.png") }, 8, AnimationPlaybackMode.OneShot);
+    private static readonly AnimationClip WildlifeLunge = new("wildlife_lunge", new[] { new AnimationFrame("idle_1.png") }, 1);
+    private static readonly AnimationClip EnemyDefeated = new("enemy_defeated", new[] { new AnimationFrame("idle_0.png") }, 1, AnimationPlaybackMode.OneShot);
 
     public static AnimationClip For(PresentationAnimationState state) => state switch
     {
@@ -196,6 +318,13 @@ public static class PlaceholderAnimationCatalog
         PresentationAnimationState.Hurt => Hurt,
         PresentationAnimationState.EnemyIdle => EnemyIdle,
         PresentationAnimationState.PickupFloat => PickupFloat,
+        PresentationAnimationState.BanditPatrol => BanditPatrol,
+        PresentationAnimationState.BanditNotice => BanditNotice,
+        PresentationAnimationState.BanditAttack => BanditAttack,
+        PresentationAnimationState.WildlifePatrol => WildlifePatrol,
+        PresentationAnimationState.WildlifeNotice => WildlifeNotice,
+        PresentationAnimationState.WildlifeLunge => WildlifeLunge,
+        PresentationAnimationState.EnemyDefeated => EnemyDefeated,
         _ => Idle
     };
 }

@@ -18,7 +18,7 @@ internal sealed class CowbaniaGame : Game
     private readonly Dictionary<string, Texture2D> enemySprites = new();
     private readonly Dictionary<string, Texture2D> pickupSprites = new();
     private readonly AnimationClock playerClock = new();
-    private readonly Dictionary<int, AnimationClock> enemyClocks = new();
+    private readonly Dictionary<string, PresentationAnimationClock> enemyClocks = new(StringComparer.Ordinal);
     private readonly AnimationClock pickupClock = new();
     private readonly AudioEventBus audioBus = new();
     private PresentationAnimationState playerAnimationState;
@@ -136,6 +136,8 @@ internal sealed class CowbaniaGame : Game
         var previousObjective = world.ObjectivePhase;
         var previousCheckpointRoom = world.CheckpointRoom;
         var previousCheckpointPosition = world.CheckpointPosition;
+        var previousEnemies = world.Enemies.ToArray();
+        var previousProjectiles = world.Projectiles.ToArray();
         if (input.JumpPressed)
             RuntimeLog.Info(
                 $"jump request frame={updateFrameCount} room={world.Room} " +
@@ -156,6 +158,13 @@ internal sealed class CowbaniaGame : Game
             previousHealth,
             previousCheckpointRoom,
             previousCheckpointPosition);
+        LogEncounterTransitions(previousEnemies, previousProjectiles);
+        if (previousRoom != world.Room ||
+            previousHealth == 1 && world.Health == GameWorld.MaximumHealth)
+        {
+            enemyClocks.Clear();
+            RuntimeLog.Info($"enemy presentation clocks reset frame={updateFrameCount} room={world.Room}");
+        }
         var simulationActive = !world.IsPaused && !world.Completed;
         if (simulationActive)
         {
@@ -169,6 +178,10 @@ internal sealed class CowbaniaGame : Game
             if (world.Ammo < previousAmmo) audioBus.Play(AudioEvent.Shooting);
             if (world.Health < previousHealth) audioBus.Play(AudioEvent.Damage);
             if (world.CollectedPickupCount > previousPickupCount) audioBus.Play(AudioEvent.Pickup);
+            if (StartedEnemyAttack(previousEnemies, world.Enemies, EnemyArchetype.Bandit))
+                audioBus.Play(AudioEvent.Shooting);
+            if (StartedEnemyAttack(previousEnemies, world.Enemies, EnemyArchetype.Wildlife))
+                audioBus.Play(AudioEvent.Dash);
             if (world.Ammo < previousAmmo) shootTimer = 0.14f;
             if (world.Health < previousHealth) hurtTimer = 0.35f;
             shootTimer = MathF.Max(0, shootTimer - dt);
@@ -182,13 +195,12 @@ internal sealed class CowbaniaGame : Game
                 playerClock.Reset();
             }
             playerClock.Advance(dt, PlaceholderAnimationCatalog.For(playerAnimationState));
-            for (var i = 0; i < world.Enemies.Count; i++)
+            foreach (var enemy in world.Enemies)
             {
-                var enemy = world.Enemies[i];
-                var index = i;
-                if (!enemyClocks.TryGetValue(index, out var clock))
-                    enemyClocks[index] = clock = new AnimationClock();
-                clock.Advance(dt, PlaceholderAnimationCatalog.For(PresentationStateSelector.SelectEnemy(enemy.Alive)));
+                var presentation = PresentationStateSelector.SelectEnemy(enemy);
+                if (!enemyClocks.TryGetValue(enemy.Id, out var clock))
+                    enemyClocks[enemy.Id] = clock = new PresentationAnimationClock();
+                clock.Advance(dt, presentation.AnimationState);
             }
             pickupClock.Advance(dt, PlaceholderAnimationCatalog.For(PresentationAnimationState.PickupFloat));
         }
@@ -230,14 +242,43 @@ internal sealed class CowbaniaGame : Game
         for (var i = 0; i < world.Enemies.Count; i++)
         {
             var enemy = world.Enemies[i];
-            if (!enemy.Alive) continue;
-            var clip = PlaceholderAnimationCatalog.For(PresentationStateSelector.SelectEnemy(true));
-            DrawActorSprite(enemySprites[clip.Frames[enemyClocks[i].CurrentFrameIndex].AssetKey], enemy.Position, cameraX, 1);
+            var presentation = PresentationStateSelector.SelectEnemy(enemy);
+            if (!enemyClocks.TryGetValue(enemy.Id, out var clock))
+            {
+                enemyClocks[enemy.Id] = clock = new PresentationAnimationClock();
+                clock.Advance(0, presentation.AnimationState);
+            }
+
+            DrawEnemyTelegraph(enemy, presentation, cameraX);
+            var tint = new Color(
+                presentation.PaletteTint.Red,
+                presentation.PaletteTint.Green,
+                presentation.PaletteTint.Blue);
+            DrawActorSprite(
+                enemySprites[clock.CurrentFrame().AssetKey],
+                enemy.Position,
+                cameraX,
+                presentation.FacingDirection,
+                tint);
         }
         foreach (var projectile in world.Projectiles)
         {
             var projectileScreenPosition = ToScreen(projectile.Position, cameraX);
-            DrawRect(new Rectangle((int)projectileScreenPosition.X - 3, (int)projectileScreenPosition.Y - 3, 6, 6), Color.Yellow);
+            if (projectile.Owner == ProjectileOwner.Enemy)
+            {
+                DrawRect(
+                    new Rectangle((int)projectileScreenPosition.X - 5, (int)projectileScreenPosition.Y - 2, 10, 4),
+                    new Color(255, 96, 48));
+                DrawRect(
+                    new Rectangle((int)projectileScreenPosition.X - 2, (int)projectileScreenPosition.Y - 1, 4, 2),
+                    Color.White);
+            }
+            else
+            {
+                DrawRect(
+                    new Rectangle((int)projectileScreenPosition.X - 3, (int)projectileScreenPosition.Y - 3, 6, 6),
+                    Color.Yellow);
+            }
         }
         var pickupClip = PlaceholderAnimationCatalog.For(PresentationAnimationState.PickupFloat);
         var pickupTexture = pickupSprites[pickupClip.Frames[pickupClock.CurrentFrameIndex].AssetKey];
@@ -278,7 +319,8 @@ internal sealed class CowbaniaGame : Game
             $"Update heartbeat begin frame={updateFrameCount} runtimeSeconds={runtimeSeconds:F1} " +
             $"gameElapsedMs={gameTime.ElapsedGameTime.TotalMilliseconds:F1} previousExecutionMs={lastUpdateDurationMilliseconds:F1} " +
             $"room={world.Room} objective={world.ObjectivePhase} paused={world.IsPaused} completed={world.Completed} " +
-            $"health={world.Health} ammo={world.Ammo} projectiles={world.Projectiles.Count}");
+            $"health={world.Health} ammo={world.Ammo} enemies={world.Enemies.Count(enemy => enemy.Alive)} " +
+            $"projectiles={world.Projectiles.Count} hostileProjectiles={world.Projectiles.Count(projectile => projectile.Owner == ProjectileOwner.Enemy)}");
     }
 
     private void LogDrawHeartbeat(GameTime gameTime)
@@ -326,6 +368,57 @@ internal sealed class CowbaniaGame : Game
                 $"position=({world.PlayerPosition.X:F1},{world.PlayerPosition.Y:F1})");
         else if (previousHealth != world.Health)
             RuntimeLog.Info($"state health {previousHealth}->{world.Health} frame={updateFrameCount}");
+    }
+
+    private void LogEncounterTransitions(
+        IReadOnlyList<EnemyState> previousEnemies,
+        IReadOnlyList<ProjectileState> previousProjectiles)
+    {
+        var previousById = previousEnemies.ToDictionary(enemy => enemy.Id, StringComparer.Ordinal);
+        foreach (var enemy in world.Enemies)
+        {
+            if (!previousById.TryGetValue(enemy.Id, out var previousEnemy))
+            {
+                RuntimeLog.Info(
+                    $"enemy snapshot added id=\"{enemy.Id}\" archetype={enemy.Archetype} " +
+                    $"state={enemy.BehaviorState} phase={enemy.AttackPhase} frame={updateFrameCount}");
+                continue;
+            }
+
+            if (previousEnemy.BehaviorState != enemy.BehaviorState ||
+                previousEnemy.AttackPhase != enemy.AttackPhase ||
+                previousEnemy.Alive != enemy.Alive)
+            {
+                RuntimeLog.Info(
+                    $"enemy transition id=\"{enemy.Id}\" archetype={enemy.Archetype} " +
+                    $"state={previousEnemy.BehaviorState}->{enemy.BehaviorState} " +
+                    $"phase={previousEnemy.AttackPhase}->{enemy.AttackPhase} " +
+                    $"alive={previousEnemy.Alive}->{enemy.Alive} frame={updateFrameCount}");
+            }
+        }
+
+        var previousHostileCount = previousProjectiles.Count(projectile => projectile.Owner == ProjectileOwner.Enemy);
+        var hostileProjectiles = world.Projectiles
+            .Where(projectile => projectile.Owner == ProjectileOwner.Enemy)
+            .ToArray();
+        if (hostileProjectiles.Length > previousHostileCount)
+            RuntimeLog.Info(
+                $"hostile projectiles count={previousHostileCount}->{hostileProjectiles.Length} " +
+                $"sources=\"{string.Join(",", hostileProjectiles.Select(projectile => projectile.SourceId).Distinct())}\" " +
+                $"frame={updateFrameCount}");
+    }
+
+    private static bool StartedEnemyAttack(
+        IReadOnlyList<EnemyState> previousEnemies,
+        IReadOnlyList<EnemyState> currentEnemies,
+        EnemyArchetype archetype)
+    {
+        var previousById = previousEnemies.ToDictionary(enemy => enemy.Id, StringComparer.Ordinal);
+        return currentEnemies.Any(enemy =>
+            enemy.Archetype == archetype &&
+            enemy.AttackPhase == EnemyAttackPhase.Active &&
+            (!previousById.TryGetValue(enemy.Id, out var previousEnemy) ||
+             previousEnemy.AttackPhase != EnemyAttackPhase.Active));
     }
 
     private static StagePalette GetPalette(int roomId) => roomId == RoomCatalog.Branch.Id ? BranchPalette : HubPalette;
@@ -457,6 +550,63 @@ internal sealed class CowbaniaGame : Game
         }
     }
 
+    private void DrawEnemyTelegraph(
+        EnemyState enemy,
+        EnemyPresentationDefinition presentation,
+        float cameraX)
+    {
+        if (presentation.TelegraphMarker == EnemyTelegraphMarker.None)
+            return;
+
+        var position = ToScreen(enemy.Position, cameraX);
+        var x = (int)position.X;
+        var feetY = (int)position.Y;
+        var facing = presentation.FacingDirection;
+        var progress = Math.Clamp(enemy.AttackTimerNormalized, 0f, 1f);
+
+        switch (presentation.TelegraphMarker)
+        {
+            case EnemyTelegraphMarker.NoticeBurst:
+                DrawRect(new Rectangle(x - 2, feetY - 66, 4, 14), Color.White);
+                DrawRect(new Rectangle(x - 12, feetY - 62, 7, 4), Color.Gold);
+                DrawRect(new Rectangle(x + 5, feetY - 62, 7, 4), Color.Gold);
+                break;
+
+            case EnemyTelegraphMarker.BanditAimLine:
+                var aimLength = 40 + (int)(72 * progress);
+                var aimStart = x + facing * 18;
+                DrawRect(
+                    new Rectangle(
+                        facing > 0 ? aimStart : aimStart - aimLength,
+                        feetY - 27,
+                        aimLength,
+                        2),
+                    new Color(255, 196, 72, 190));
+                DrawRect(new Rectangle(aimStart + facing * (aimLength - 3) - 2, feetY - 30, 5, 8), Color.Red);
+                break;
+
+            case EnemyTelegraphMarker.BanditMuzzleFlash:
+                var muzzleX = x + facing * 24;
+                DrawRect(new Rectangle(muzzleX - 6, feetY - 31, 12, 12), Color.Gold);
+                DrawRect(new Rectangle(muzzleX - 2, feetY - 35, 4, 20), Color.White);
+                break;
+
+            case EnemyTelegraphMarker.WildlifeLungeArrow:
+                var arrowX = x + facing * (28 + (int)(16 * progress));
+                DrawRect(
+                    new Rectangle(facing > 0 ? x + 12 : arrowX, feetY - 18, Math.Abs(arrowX - (x + facing * 12)), 4),
+                    new Color(154, 255, 112, 210));
+                DrawRect(new Rectangle(arrowX - 4, feetY - 24, 8, 16), Color.White);
+                break;
+
+            case EnemyTelegraphMarker.WildlifeLungeTrail:
+                var trailX = facing > 0 ? x - 52 : x + 16;
+                DrawRect(new Rectangle(trailX, feetY - 34, 36, 6), new Color(105, 220, 104, 150));
+                DrawRect(new Rectangle(trailX - facing * 8, feetY - 22, 26, 4), new Color(180, 255, 150, 120));
+                break;
+        }
+    }
+
     private void DrawTransitionDoor(float anchorX, RoomDefinition room, StagePalette palette, float cameraX)
     {
         var x = (int)(anchorX - cameraX);
@@ -556,12 +706,13 @@ internal sealed class CowbaniaGame : Game
         Texture2D texture,
         System.Numerics.Vector2 anchor,
         float cameraX,
-        int facingDirection)
+        int facingDirection,
+        Color? tint = null)
     {
         var position = ToScreen(anchor, cameraX);
         var origin = new Vector2(texture.Width / 2f, 13f);
         var effects = facingDirection < 0 ? SpriteEffects.FlipHorizontally : SpriteEffects.None;
-        spriteBatch.Draw(texture, position, null, Color.White, 0f, origin, 3f, effects, 0f);
+        spriteBatch.Draw(texture, position, null, tint ?? Color.White, 0f, origin, 3f, effects, 0f);
     }
 
     private void DrawSprite(Texture2D texture, Rectangle destination, Color color) =>

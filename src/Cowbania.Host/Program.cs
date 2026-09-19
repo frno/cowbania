@@ -17,9 +17,6 @@ else
 
 try
 {
-    if (args.Contains("--fatal-probe", StringComparer.Ordinal))
-        throw new InvalidOperationException("controlled fatal probe");
-
     StartupDiagnostics.Mark("constructing CowbaniaGame");
     using var game = new CowbaniaGame();
     StartupDiagnostics.Mark("CowbaniaGame constructed; entering Game.Run");

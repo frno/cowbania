@@ -1,0 +1,1 @@
+copilot --agent squad --yolo --remote
