@@ -20,7 +20,7 @@ internal static class RevolverSystem
             state.Projectiles.Add(new(
                 state.PlayerPosition + GameWorld.PlayerMuzzleOffset +
                 state.AimDirection * GameWorld.PlayerMuzzleDistance,
-                state.AimDirection * 720,
+                state.AimDirection * GameWorld.RevolverProjectileSpeed,
                 1));
             state.PlayerShotAcceptedThisUpdate = true;
             if (state.Ammo == 0) BeginReload(state, elapsedSeconds);

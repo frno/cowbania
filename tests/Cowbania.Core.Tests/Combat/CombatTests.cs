@@ -40,7 +40,8 @@ internal static class CombatTests
                             }
 
                             Assert(game.Ammo == 0, "six accepted shots consume the full cylinder");
-                            Assert(game.Projectiles.Count == 6, "each accepted shot spawns one projectile");
+                            Assert(game.Projectiles.Count > 0,
+                                "later accepted shots remain active while earlier shots can exhaust their range");
                             Assert(game.Projectiles.All(projectile => projectile.Position.Y == 456), "projectiles spawn from the elevated gun muzzle");
                             Assert(game.PlayerShotAcceptedThisUpdate,
                                 "the sixth accepted shot reports acceptance on its update");
@@ -48,6 +49,65 @@ internal static class CombatTests
                             Assert(MathF.Abs(GetField<float>(game, "reloadTimer") -
                                              (GameWorld.ReloadDuration - GameWorld.FireDelay)) < 0.0001f,
                                 "automatic reload consumes the same accepted-shot update time as presentation");
+            });
+            yield return new TestCase("revolver projectiles expire at their maximum travel range", () =>
+            {
+                var game = new GameWorld();
+                SetProperty(game, nameof(GameWorld.Enemy), new EnemyState(new Vector2(470, 480), 0, false));
+                game.Update(new InputFrame(0, false, false, Vector2.UnitX, true, false, false, false), 0f);
+                var spawn = game.Projectiles.Single().Position;
+
+                game.Update(default,
+                    GameWorld.RevolverProjectileRange / GameWorld.RevolverProjectileSpeed - 0.01f);
+
+                Assert(game.Projectiles.Count == 1,
+                    "the revolver projectile remains active immediately before its range is exhausted");
+                Assert(game.Projectiles[0].RemainingRange > 0,
+                    "the projectile snapshot exposes its remaining deterministic travel range");
+
+                game.Update(default, 0.02f);
+
+                Assert(game.Projectiles.Count == 0,
+                    "the revolver projectile is removed instead of traveling beyond its maximum range");
+                Assert(GameWorld.RevolverProjectileRange == 360f &&
+                       Vector2.Distance(spawn, spawn + Vector2.UnitX * GameWorld.RevolverProjectileRange) == 360f,
+                    "the configured revolver range is 360 world units");
+            });
+            yield return new TestCase("revolver endpoint collisions resolve before range expiry", () =>
+            {
+                var game = new GameWorld();
+                var spawn = game.PlayerPosition + GameWorld.PlayerMuzzleOffset +
+                            Vector2.UnitX * GameWorld.PlayerMuzzleDistance;
+                SetProperty(game, nameof(GameWorld.Enemy),
+                    new EnemyState(spawn + Vector2.UnitX * GameWorld.RevolverProjectileRange, 2, true));
+
+                game.Update(new InputFrame(0, false, false, Vector2.UnitX, true, false, false, false),
+                    GameWorld.RevolverProjectileRange / GameWorld.RevolverProjectileSpeed);
+
+                Assert(game.Enemy.Health == 1,
+                    "an enemy at the exact revolver endpoint is damaged before the projectile expires");
+                Assert(game.Projectiles.Count == 0,
+                    "the endpoint hit consumes the revolver projectile");
+            });
+            yield return new TestCase("enemy projectiles are exempt from the revolver range", () =>
+            {
+                var game = new GameWorld();
+                var projectiles = GetField<List<ProjectileState>>(game, "projectiles");
+                projectiles.Add(new ProjectileState(
+                    new Vector2(600, 200),
+                    Vector2.UnitX * GameWorld.BanditProjectileSpeed,
+                    1,
+                    ProjectileOwner.Enemy,
+                    ProjectileKind.BanditBullet,
+                    "range-test-bandit"));
+
+                game.Update(default, 1.3f);
+
+                var hostile = game.Projectiles.Single(projectile => projectile.SourceId == "range-test-bandit");
+                Assert(Vector2.Distance(hostile.Position, new Vector2(600, 200)) > GameWorld.RevolverProjectileRange,
+                    "enemy projectiles can travel farther than the player's revolver range");
+                Assert(float.IsPositiveInfinity(hostile.RemainingRange),
+                    "enemy projectiles retain unlimited range until collision or room exit");
             });
             yield return new TestCase("automatic reload blocks firing and refills exactly once", () =>
             {
@@ -91,8 +151,8 @@ internal static class CombatTests
 
                             Assert(game.Ammo == 5 && !game.IsReloading,
                                 "reload completion refills then accepts held fire without a delayed frame");
-                            Assert(game.Projectiles.Count == 1,
-                                "immediate post-completion fire creates exactly one projectile");
+                            Assert(game.Projectiles.Count == 0,
+                                "the immediate post-completion shot can exhaust its range during the same large update");
                             Assert(game.PlayerShotAcceptedThisUpdate,
                                 "reload completion reports the accepted held-fire shot despite the net ammo increase");
             });

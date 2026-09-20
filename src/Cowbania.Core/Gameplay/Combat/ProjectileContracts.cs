@@ -20,10 +20,18 @@ public readonly record struct ProjectileState(
     int Damage,
     ProjectileOwner Owner,
     ProjectileKind Kind,
-    string SourceId)
+    string SourceId,
+    float RemainingRange = float.PositiveInfinity)
 {
     public ProjectileState(Vector2 position, Vector2 velocity, int damage)
-        : this(position, velocity, damage, ProjectileOwner.Player, ProjectileKind.Revolver, "player")
+        : this(
+            position,
+            velocity,
+            damage,
+            ProjectileOwner.Player,
+            ProjectileKind.Revolver,
+            "player",
+            GameWorld.RevolverProjectileRange)
     {
     }
 }

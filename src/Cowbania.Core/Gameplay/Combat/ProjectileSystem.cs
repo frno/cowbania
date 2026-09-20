@@ -10,9 +10,24 @@ internal static class ProjectileSystem
     {
         for (var i = state.Projectiles.Count - 1; i >= 0; i--)
         {
-            var projectile = state.Projectiles[i] with
+            var projectile = state.Projectiles[i];
+            var displacement = projectile.Velocity * dt;
+            var travelDistance = displacement.Length();
+            if (!float.IsPositiveInfinity(projectile.RemainingRange) &&
+                travelDistance > projectile.RemainingRange)
             {
-                Position = state.Projectiles[i].Position + state.Projectiles[i].Velocity * dt
+                displacement = travelDistance > 0
+                    ? displacement * (projectile.RemainingRange / travelDistance)
+                    : Vector2.Zero;
+                travelDistance = projectile.RemainingRange;
+            }
+
+            projectile = projectile with
+            {
+                Position = projectile.Position + displacement,
+                RemainingRange = float.IsPositiveInfinity(projectile.RemainingRange)
+                    ? projectile.RemainingRange
+                    : MathF.Max(0, projectile.RemainingRange - travelDistance)
             };
             if (projectile.Owner == ProjectileOwner.Player)
             {
@@ -59,6 +74,8 @@ internal static class ProjectileSystem
 
             if (IsOutsideRoom(state, projectile.Position) ||
                 state.CurrentRoom.Solids.Any(solid => CollisionQueries.Contains(solid, projectile.Position)))
+                state.Projectiles.RemoveAt(i);
+            else if (projectile.RemainingRange <= 0)
                 state.Projectiles.RemoveAt(i);
             else
                 state.Projectiles[i] = projectile;

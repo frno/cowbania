@@ -20,6 +20,8 @@ public sealed class GameWorld
     public const float DashDuration = 0.18f;
     public const float FireDelay = 0.14f;
     public const float ReloadDuration = FireDelay * 4;
+    public const float RevolverProjectileSpeed = 720f;
+    public const float RevolverProjectileRange = 420f;
     public const float Gravity = 1680f;
     public const float InteractionRadius = 42f;
     public const float PickupRadius = 32f;
