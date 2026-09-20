@@ -19,6 +19,20 @@
 
 Do not preload all of `docs/`, `QA/`, or asset manifests.
 
+## Decision discipline
+
+- Separate the requested outcome from any suggested implementation. Check the implementation against
+  existing contracts, architecture, and project conventions before accepting it.
+- If the suggested approach is brittle, inconsistent, or likely to produce the wrong behavior, say
+  so before editing. Recommend the better approach and briefly state the tradeoff; do not silently
+  implement a known-poor mechanism.
+- Ask one focused question only when repository evidence cannot resolve an uncertainty and different
+  answers would materially change behavior, public contracts, destructive work, or paid generation.
+- For low-risk, reversible ambiguity, follow the nearest existing convention, state the assumption,
+  and proceed. Do not turn routine work into an interview.
+- Do not invent product rules, constants, or acceptance criteria. Derive them from existing contracts
+  or confirm them. Once the user decides, implement without reopening the same decision.
+
 ## Architecture invariants
 
 - `Cowbania.Host` depends on `Cowbania.Core`; Core must not depend on MonoGame, Host, filesystem, or
