@@ -16,8 +16,8 @@ Included systems:
 - Bandit and wildlife enemies with patrol, notice, chase, and attack behaviors
 - Three-hit health and runtime-only checkpoint respawn
 - Smooth camera follow with room bounds
-- Currency (HUD counter only), health, and reserved ammo collectibles; reserved ammo is not active for the revolver
-- HUD for health, revolver ammo, selected slot 1, currency, pause, and completion
+- Score coins, health, and reserved ammo collectibles; each coin awards 100 points and reserved ammo is not active for the revolver
+- HUD for health, revolver ammo, selected slot 1, centered global score and current-room coin progress, pause, and completion
 - Sound effects for shooting, reload, jump, dash, pickups, and damage
 - Player animation states: idle, run, jump, fall, shoot, reload, and hurt
 - Frontier animations for other visible animated objects where appropriate
@@ -127,11 +127,12 @@ dotnet run --project src/Cowbania.Host
 
 The first playable slice has a hub, branch room, checkpoint, multiple patrol enemies, shortcut return,
 movement/jump/dash, eight-way keyboard aim, six-shot revolver, timed reload, projectile damage,
-three health points, checkpoint respawn, camera follow, and a minimal HUD. Interact with `E` at
-the branch checkpoint and shortcut. After taking the branch shortcut back to the hub, press `E`
+three health points, checkpoint respawn, camera follow, and a minimal HUD. Reach the tall trail bell at
+the far right of Dustwind Crossing and touch its hanging rope to enter Rattlesnake Run. Interact with `E` at the branch checkpoint
+and shortcut. After taking the branch shortcut back to the hub, press `E`
 again within 42 units of the hub-side shortcut to complete the slice.
 
-Pickup collection, currency, reserved ammo, shortcut state, and the active room/position checkpoint
+Pickup collection, score, coin progress, reserved ammo, shortcut state, and the active room/position checkpoint
 survive death and room transitions for the current run. Relaunching the game starts a fresh run.
 Pausing freezes gameplay, timers, sound triggers, and animation clocks. Only top-row `1` selects a
 weapon; it idempotently selects the revolver without changing its ammo or reload progress.

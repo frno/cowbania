@@ -4,7 +4,7 @@ namespace Cowbania.Core.Gameplay.Pickups;
 
 public enum PickupType
 {
-    Currency,
+    Coin,
     Health,
     ReserveAmmo
 }

@@ -248,11 +248,11 @@ internal static class AnimationTests
                                    clock.CurrentFrame().AssetKey == "Frontier/Snake/hidden_0.png",
                                 "snapshot-driven clocks retain hidden snake mound rendering");
             });
-            yield return new TestCase("frontier pickup clips cover currency health and ammo", () =>
+            yield return new TestCase("frontier pickup clips cover coin health and ammo", () =>
             {
                 var expected = new[]
                             {
-                                (PickupType.Currency, "Currency"),
+                                (PickupType.Coin, "Coin"),
                                 (PickupType.Health, "Health"),
                                 (PickupType.ReserveAmmo, "Ammo")
                             };
@@ -273,7 +273,7 @@ internal static class AnimationTests
                             }
 
                             var clock = new PresentationAnimationClock();
-                            clock.Advance(0.2f, PickupType.Currency);
+                            clock.Advance(0.2f, PickupType.Coin);
                             clock.Advance(0f, PickupType.Health);
                             Assert(clock.CurrentFrameIndex == 0 &&
                                    clock.CurrentFrame().AssetKey == "Frontier/Pickup/Health/float_0.png",

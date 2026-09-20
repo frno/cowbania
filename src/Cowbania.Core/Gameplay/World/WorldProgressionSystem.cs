@@ -36,15 +36,21 @@ internal static class WorldProgressionSystem
         {
             state.Completed = true;
         }
-        else if (state.Room == RoomCatalog.Hub.Id &&
-                 state.PlayerPosition.X > room.Bounds.Right - 40)
-        {
-            state.Room = RoomCatalog.Branch.Id;
-            ClearTransientEncounterState(state);
-            ResetEncounter(state, state.Room);
-            state.PlayerPosition = RoomCatalog.Branch.Spawn;
-            state.PlayerVelocity = Vector2.Zero;
-        }
+    }
+
+    internal static bool TryEnterBranch(GameWorldState state)
+    {
+        if (state.Room != RoomCatalog.Hub.Id ||
+            state.CurrentRoom.Exit is not { } exit ||
+            Vector2.Distance(state.PlayerPosition, exit) >= GameWorld.InteractionRadius)
+            return false;
+
+        state.Room = RoomCatalog.Branch.Id;
+        ClearTransientEncounterState(state);
+        ResetEncounter(state, state.Room);
+        state.PlayerPosition = RoomCatalog.Branch.Spawn;
+        state.PlayerVelocity = Vector2.Zero;
+        return true;
     }
 
     internal static void Respawn(GameWorldState state)

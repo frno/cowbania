@@ -420,10 +420,12 @@ def pickup(kind, frame):
     im = canvas()
     d = ImageDraw.Draw(im)
     y = 4 + (0, 1, 2, 1)[frame]
-    if kind == "Currency":
-        poly(d, [(8, y), (12, y + 3), (8, y + 7), (4, y + 3)], C["outline"])
-        poly(d, [(8, y + 1), (10, y + 3), (8, y + 6), (6, y + 3)], C["gold"])
-        rect(d, (8, y + 2, 8, y + 4), C["white"])
+    if kind == "Coin":
+        width = (4, 3, 2, 3)[frame]
+        rect(d, (8 - width, y, 8 + width, y + 8), C["outline"])
+        rect(d, (8 - width + 1, y + 1, 8 + width - 1, y + 7), C["gold"])
+        rect(d, (8 - max(0, width - 2), y + 3, 8 + max(0, width - 2), y + 5), C["ochre"])
+        rect(d, (7, y + 2, 8, y + 3), C["white"])
     elif kind == "Health":
         poly(d, [(3, y + 2), (5, y), (8, y + 2), (11, y), (13, y + 2), (12, y + 5), (8, y + 9), (4, y + 5)], C["outline"])
         poly(d, [(5, y + 2), (8, y + 4), (11, y + 2), (11, y + 4), (8, y + 7), (5, y + 4)], C["red"])
@@ -477,7 +479,7 @@ def terrain(name):
 
 
 def prop(name):
-    size = (32, 32) if name in ("checkpoint", "shortcut", "transition_gate", "wagon_debris", "mine_timber") else (16, 16)
+    size = (32, 32) if name in ("checkpoint", "shortcut", "transition_gate", "trail_bell", "wagon_debris", "mine_timber") else (16, 16)
     im = canvas(size)
     d = ImageDraw.Draw(im)
     s = size[0] // 16
@@ -493,6 +495,15 @@ def prop(name):
     elif name == "transition_gate":
         R((2, 1, 13, 3), C["outline"]); R((2, 3, 4, 15), C["outline"]); R((11, 3, 13, 15), C["outline"])
         R((3, 2, 12, 2), C["timber_hi"]); R((5, 5, 10, 6), C["violet"])
+    elif name == "trail_bell":
+        # Tall frontier finish marker: timber post, brass bell, and a long pull rope.
+        R((2, 1, 4, 15), C["outline"]); R((3, 2, 3, 14), C["timber_hi"])
+        R((3, 1, 12, 3), C["outline"]); R((4, 2, 11, 2), C["timber_hi"])
+        R((10, 3, 11, 5), C["outline"])
+        poly(d, [(8*s, 5*s), (13*s, 5*s), (14*s, 9*s), (7*s, 9*s)], C["outline"])
+        poly(d, [(9*s, 6*s), (12*s, 6*s), (13*s, 8*s), (8*s, 8*s)], C["gold"])
+        R((9, 9, 12, 10), C["outline"]); R((10, 9, 11, 9), C["sand"])
+        R((12, 10, 12, 15), C["bone"]); R((11, 14, 13, 15), C["outline"])
     elif name.startswith("cactus"):
         R((7, 2, 9, 14), C["outline"]); R((8, 3, 8, 13), C["sage"])
         side = 3 if name.endswith("0") else 11
@@ -570,10 +581,11 @@ def ui(name):
         col = C["ochre"] if name.endswith("full") else C["blue_dark"]
         rect(d, (5, 2, 10, 14), C["outline"]); rect(d, (6, 4, 9, 12), col)
         poly(d, [(6, 4), (8, 1), (9, 4)], C["bone"] if name.endswith("full") else C["violet"])
-    elif name == "currency":
-        poly(d, [(8, 1), (14, 8), (8, 15), (2, 8)], C["outline"])
-        poly(d, [(8, 3), (12, 8), (8, 13), (4, 8)], C["gold"])
-        rect(d, (7, 5, 9, 10), C["ochre"])
+    elif name == "coin":
+        poly(d, [(5, 1), (11, 1), (14, 4), (14, 11), (11, 14), (5, 14), (2, 11), (2, 4)], C["outline"])
+        poly(d, [(6, 3), (10, 3), (12, 5), (12, 10), (10, 12), (6, 12), (4, 10), (4, 5)], C["gold"])
+        rect(d, (6, 5, 10, 10), C["ochre"])
+        rect(d, (6, 4, 8, 5), C["white"])
     elif name == "slot_frame":
         d.rectangle((1, 1, 14, 14), outline=C["outline"], width=2)
         rect(d, (3, 3, 12, 3), C["sand"]); rect(d, (3, 12, 12, 12), C["timber"])
@@ -619,18 +631,18 @@ def generate():
             save(bandit(frame, state), f"Bandit/{state}_{frame}.png")
             wildlife_state = "lunge" if state == "attack" else state
             save(wildlife(frame, wildlife_state), f"Wildlife/{wildlife_state}_{frame}.png")
-    for kind in ("Currency", "Health", "Ammo"):
+    for kind in ("Coin", "Health", "Ammo"):
         for frame in range(4):
             save(pickup(kind, frame), f"Pickup/{kind}/float_{frame}.png")
     for name in ("ground_cap", "ground_body", "platform_left", "platform_middle", "platform_right", "timber_support", "stone", "mine_reinforcement"):
         save(terrain(name), f"Terrain/{name}.png")
-    for name in ("checkpoint", "shortcut", "transition_gate", "cactus_0", "cactus_1", "crate", "wagon_debris", "mine_timber", "sign"):
+    for name in ("checkpoint", "shortcut", "transition_gate", "trail_bell", "cactus_0", "cactus_1", "crate", "wagon_debris", "mine_timber", "sign"):
         save(prop(name), f"Props/{name}.png")
     effects = {"muzzle": 3, "impact": 3, "dust": 3, "dash": 3, "hurt": 2, "defeat": 3, "pickup": 4}
     for kind, count in effects.items():
         for frame in range(count):
             save(effect(kind, frame), f"Effects/{kind}_{frame}.png")
-    for name in ("heart_full", "heart_empty", "ammo_full", "ammo_empty", "currency", "slot_frame", "panel_corner"):
+    for name in ("heart_full", "heart_empty", "ammo_full", "ammo_empty", "coin", "slot_frame", "panel_corner"):
         save(ui(name), f"UI/{name}.png")
     for name in ("hub_far", "hub_mid", "branch_far", "branch_mid"):
         save(background(name), f"Background/{name}.png")
@@ -650,17 +662,21 @@ def validate():
         add(f"Bandit/{state}", count)
     for state, count in {"patrol":4, "notice":2, "lunge":4, "defeated":2}.items():
         add(f"Wildlife/{state}", count)
-    for kind in ("Currency", "Health", "Ammo"):
+    for state, count in {"patrol":4, "notice":2, "roll":4}.items():
+        add(f"Armadillo/{state}", count)
+    for state, count in {"hidden":2, "rise":2, "exposed":4, "retreat":2, "defeated":2}.items():
+        add(f"Snake/{state}", count)
+    for kind in ("Coin", "Health", "Ammo"):
         add(f"Pickup/{kind}/float", 4)
     for name in ("ground_cap", "ground_body", "platform_left", "platform_middle", "platform_right", "timber_support", "stone", "mine_reinforcement"):
         add(f"Terrain/{name}.png")
-    for name in ("checkpoint", "shortcut", "transition_gate", "wagon_debris", "mine_timber"):
+    for name in ("checkpoint", "shortcut", "transition_gate", "trail_bell", "wagon_debris", "mine_timber"):
         add(f"Props/{name}.png", size=(32, 32))
     for name in ("cactus_0", "cactus_1", "crate", "sign"):
         add(f"Props/{name}.png")
     for kind, count in {"muzzle":3, "impact":3, "dust":3, "dash":3, "hurt":2, "defeat":3, "pickup":4}.items():
         add(f"Effects/{kind}", count)
-    for name in ("heart_full", "heart_empty", "ammo_full", "ammo_empty", "currency", "slot_frame", "panel_corner"):
+    for name in ("heart_full", "heart_empty", "ammo_full", "ammo_empty", "coin", "slot_frame", "panel_corner"):
         add(f"UI/{name}.png")
     for name in ("hub_far", "hub_mid", "branch_far", "branch_mid"):
         add(f"Background/{name}.png", size=(256, 144))

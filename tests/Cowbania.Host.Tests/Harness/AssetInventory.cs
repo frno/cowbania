@@ -19,11 +19,11 @@ internal static class AssetInventory
         AddNamed(assets, "Terrain", "ground_cap", "ground_body", "platform_left", "platform_middle",
             "platform_right", "timber_support", "stone", "mine_reinforcement");
         AddNamed(assets, "Props", "cactus_0", "cactus_1", "crate", "sign", "checkpoint", "shortcut",
-            "transition_gate", "wagon_debris", "mine_timber");
+            "transition_gate", "trail_bell", "wagon_debris", "mine_timber");
         AddNamed(assets, "Effects", "muzzle_0", "muzzle_1", "muzzle_2", "impact_0", "impact_1", "impact_2",
             "dust_0", "dust_1", "dust_2", "dash_0", "dash_1", "dash_2", "hurt_0", "hurt_1",
             "defeat_0", "defeat_1", "defeat_2", "pickup_0", "pickup_1", "pickup_2", "pickup_3");
-        AddNamed(assets, "UI", "heart_full", "heart_empty", "ammo_full", "ammo_empty", "currency",
+        AddNamed(assets, "UI", "heart_full", "heart_empty", "ammo_full", "ammo_empty", "coin",
             "slot_frame", "panel_corner");
         AddNamed(assets, "Background", "hub_far", "hub_mid", "branch_far", "branch_mid");
         return assets;
@@ -35,7 +35,7 @@ internal static class AssetInventory
             return (256, 144);
         if (asset.StartsWith("Frontier/Player/", StringComparison.Ordinal))
             return (32, 32);
-        if (new[] { "checkpoint.png", "shortcut.png", "transition_gate.png", "wagon_debris.png", "mine_timber.png" }
+        if (new[] { "checkpoint.png", "shortcut.png", "transition_gate.png", "trail_bell.png", "wagon_debris.png", "mine_timber.png" }
             .Any(name => asset.EndsWith($"/{name}", StringComparison.Ordinal)))
             return (32, 32);
         return (16, 16);

@@ -14,6 +14,7 @@ public sealed record RoomDefinition(
     Vector2 Spawn,
     Vector2 Checkpoint,
     Vector2 Shortcut,
+    Vector2? Exit,
     ImmutableArray<EnemyDefinition> EnemyDefinitions,
     ImmutableArray<PickupDefinition> Pickups)
 {

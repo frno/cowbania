@@ -9,9 +9,20 @@ internal static class PresentationHudTests
             yield return new TestCase("HUD and combat telegraphs include non-color identity cues", () =>
             {
                 var root = FindRepositoryRoot();
-                            var hud = MethodBody(ReadSource(root, "src", "Cowbania.Host", "Presentation", "Hud", "HudRenderer.cs"), "Draw");
-                            foreach (var icon in new[] { "heart_full", "heart_empty", "ammo_full", "ammo_empty", "currency", "slot_frame" })
+                            var hudSource = ReadSource(root, "src", "Cowbania.Host", "Presentation", "Hud", "HudRenderer.cs");
+                            var hud = MethodBody(hudSource, "Draw");
+                            var scoreHud = MethodBody(hudSource, "DrawScore");
+                            foreach (var icon in new[] { "heart_full", "heart_empty", "ammo_full", "ammo_empty", "slot_frame" })
                                 Assert(hud.Contains($"\"{icon}\"", StringComparison.Ordinal), $"HUD must use the {icon} Frontier icon");
+                            Assert(scoreHud.Contains("\"coin\"", StringComparison.Ordinal),
+                                "the score HUD must use the coin Frontier icon");
+                            Assert(hud.Contains("DrawScore(world, width)", StringComparison.Ordinal) &&
+                                   scoreHud.Contains("viewportWidth / 2 - 140", StringComparison.Ordinal) &&
+                                   scoreHud.Contains("world.Score", StringComparison.Ordinal) &&
+                                   scoreHud.Contains("world.CurrentRoomCoinsCollected", StringComparison.Ordinal) &&
+                                   scoreHud.Contains("world.CurrentRoomTotalCoins", StringComparison.Ordinal) &&
+                                   !scoreHud.Contains("Number(world.TotalCoins", StringComparison.Ordinal),
+                                "the centered top HUD must show global score plus current-room coin progress");
 
                             var bandit = EnemyPresentationStateSelector.Select(new EnemyState(
                                 "bandit", EnemyArchetype.Bandit, EnemyBehaviorState.Attack, EnemyAttackPhase.Telegraph,

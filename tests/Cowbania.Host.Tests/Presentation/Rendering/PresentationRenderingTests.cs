@@ -65,6 +65,7 @@ internal static class PresentationRenderingTests
                             var source = string.Concat(renderContext, renderer, stage, actors, effects);
                             var draw = MethodBody(renderer, "Draw");
                             var solid = MethodBody(stage, "DrawSolid");
+                            var landmarks = MethodBody(stage, "DrawLandmarks");
 
                             Assert(source.Contains("SamplerState.PointClamp", StringComparison.Ordinal),
                                 "Frontier rendering must use PointClamp");
@@ -95,6 +96,9 @@ internal static class PresentationRenderingTests
                             Assert(draw.Contains("foreach (var solid in room.Solids)", StringComparison.Ordinal) &&
                                    solid.Contains("context.Camera.ToScreen(solid)", StringComparison.Ordinal),
                                 "rendered terrain must consume RoomCatalog solids directly");
+                            Assert(landmarks.Contains("room.Exit", StringComparison.Ordinal) &&
+                                   landmarks.Contains("\"trail_bell\"", StringComparison.Ordinal),
+                                "the room transition must render its trail bell from the catalog-owned exit anchor");
 
                             AssertInOrder(draw,
                                 "stage.DrawBackdrop", "stage.DrawSetDressing", "stage.DrawSolid", "stage.DrawLandmarks",

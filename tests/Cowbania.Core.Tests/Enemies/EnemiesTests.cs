@@ -84,7 +84,7 @@ internal static class EnemiesTests
                                 SetProperty(game, nameof(GameWorld.PlayerPosition),
                                     new Vector2(step % 2 == 0
                                         ? RoomCatalog.Hub.Bounds.X + GameWorld.PlayerBodyWidth / 2f
-                                        : RoomCatalog.Hub.Bounds.Right - GameWorld.PlayerBodyWidth / 2f,
+                                        : RoomCatalog.Hub.Bounds.Right - 140,
                                         RoomCatalog.Hub.Ground.Y));
                                 game.Update(default, 0.05f);
 

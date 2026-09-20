@@ -30,7 +30,7 @@ public static class RoomCatalog
             new RoomRect(3800, 400, 200, 24),
             // Windmill gate landing.
             new RoomRect(4020, 480, 1180, 96)),
-        new Vector2(80, 480), new Vector2(80, 480), new Vector2(4960, 480),
+        new Vector2(80, 480), new Vector2(80, 480), new Vector2(4960, 480), new Vector2(5120, 480),
         ImmutableArray.Create(
             new EnemyDefinition("hub-bandit-0", EnemyArchetype.Bandit, new Vector2(520, 480), 120),
             new EnemyDefinition("hub-wildlife-1", EnemyArchetype.Wildlife, new Vector2(1040, 480), 120),
@@ -42,10 +42,17 @@ public static class RoomCatalog
             new EnemyDefinition("hub-armadillo-ridge-descent", EnemyArchetype.DynamiteArmadillo, new Vector2(3650, 320), 90),
             new EnemyDefinition("hub-wildlife-gate", EnemyArchetype.Wildlife, new Vector2(4400, 480), 160, -1)),
         ImmutableArray.Create(
-            new PickupDefinition("hub-currency", new Vector2(1120, 460), PickupType.Currency),
+            new PickupDefinition("hub-coin-town-edge", new Vector2(1120, 460), PickupType.Coin),
+            new PickupDefinition("hub-coin-aqueduct-entry", new Vector2(1310, 380), PickupType.Coin),
+            new PickupDefinition("hub-coin-water-tower", new Vector2(1570, 300), PickupType.Coin),
+            new PickupDefinition("hub-coin-aqueduct-exit", new Vector2(1850, 380), PickupType.Coin),
             new PickupDefinition("hub-health", new Vector2(1180, 460), PickupType.Health),
-            new PickupDefinition("hub-currency-telegraph", new Vector2(3360, 228), PickupType.Currency),
-            new PickupDefinition("hub-reserve-ammo-windmill", new Vector2(3650, 300), PickupType.ReserveAmmo),
+            new PickupDefinition("hub-coin-cattle-run", new Vector2(2600, 460), PickupType.Coin),
+            new PickupDefinition("hub-coin-ridge-entry", new Vector2(3110, 300), PickupType.Coin),
+            new PickupDefinition("hub-coin-telegraph-peak", new Vector2(3360, 228), PickupType.Coin),
+            new PickupDefinition("hub-coin-ridge-exit", new Vector2(3650, 300), PickupType.Coin),
+            new PickupDefinition("hub-coin-windmill-leap", new Vector2(3900, 380), PickupType.Coin),
+            new PickupDefinition("hub-reserve-ammo-windmill", new Vector2(3740, 300), PickupType.ReserveAmmo),
             new PickupDefinition("hub-health-branch-gate", new Vector2(4760, 460), PickupType.Health)));
 
     public static readonly RoomDefinition Branch = new(
@@ -74,7 +81,7 @@ public static class RoomCatalog
             new RoomRect(5140, 400, 220, 24),
             // Gallows run to the shortcut.
             new RoomRect(5360, 480, 1040, 96)),
-        new Vector2(40, 480), new Vector2(2784, 360), new Vector2(6200, 480),
+        new Vector2(40, 480), new Vector2(2784, 360), new Vector2(6200, 480), null,
         ImmutableArray.Create(
             new EnemyDefinition("branch-wildlife-0", EnemyArchetype.Wildlife, new Vector2(520, 480), 120),
             new EnemyDefinition("branch-bandit-1", EnemyArchetype.Bandit, new Vector2(1120, 480), 120),
@@ -91,12 +98,29 @@ public static class RoomCatalog
             new EnemyDefinition("branch-bandit-shortcut-overlook", EnemyArchetype.Bandit, new Vector2(6024, 480), 96, -1)),
         ImmutableArray.Create(
             new PickupDefinition("branch-reserve-ammo", new Vector2(760, 460), PickupType.ReserveAmmo),
-            new PickupDefinition("branch-currency-vulture-crown", new Vector2(1770, 220), PickupType.Currency),
+            new PickupDefinition("branch-coin-span-entry", new Vector2(1280, 380), PickupType.Coin),
+            new PickupDefinition("branch-coin-high-span", new Vector2(1510, 300), PickupType.Coin),
+            new PickupDefinition("branch-coin-vulture-crown", new Vector2(1770, 220), PickupType.Coin),
+            new PickupDefinition("branch-coin-span-exit", new Vector2(2050, 300), PickupType.Coin),
+            new PickupDefinition("branch-coin-oasis-approach", new Vector2(2300, 380), PickupType.Coin),
             new PickupDefinition("branch-health-oasis", new Vector2(2784, 340), PickupType.Health),
-            new PickupDefinition("branch-currency-outlaw-payroll", new Vector2(3050, 340), PickupType.Currency),
-            new PickupDefinition("branch-reserve-ammo-dynamite", new Vector2(4680, 220), PickupType.ReserveAmmo),
+            new PickupDefinition("branch-coin-outlaw-payroll", new Vector2(3050, 340), PickupType.Coin),
+            new PickupDefinition("branch-coin-camp-exit", new Vector2(3260, 400), PickupType.Coin),
+            new PickupDefinition("branch-coin-terrace-entry", new Vector2(4170, 380), PickupType.Coin),
+            new PickupDefinition("branch-coin-dynamite-step", new Vector2(4420, 300), PickupType.Coin),
+            new PickupDefinition("branch-coin-blasting-perch", new Vector2(4680, 220), PickupType.Coin),
+            new PickupDefinition("branch-reserve-ammo-dynamite", new Vector2(4760, 220), PickupType.ReserveAmmo),
+            new PickupDefinition("branch-coin-terrace-descent", new Vector2(4970, 300), PickupType.Coin),
+            new PickupDefinition("branch-coin-terrace-exit", new Vector2(5250, 380), PickupType.Coin),
             new PickupDefinition("branch-health-gallows", new Vector2(5500, 460), PickupType.Health),
-            new PickupDefinition("branch-currency-shortcut", new Vector2(6024, 460), PickupType.Currency)));
+            new PickupDefinition("branch-coin-gallows", new Vector2(5760, 460), PickupType.Coin),
+            new PickupDefinition("branch-coin-shortcut", new Vector2(6024, 460), PickupType.Coin)));
+
+    internal static ImmutableDictionary<string, PickupDefinition> AllPickupsById { get; } =
+        Hub.Pickups.Concat(Branch.Pickups).ToImmutableDictionary(pickup => pickup.Id, StringComparer.Ordinal);
+
+    public static int TotalCoins { get; } =
+        AllPickupsById.Values.Count(pickup => pickup.Type == PickupType.Coin);
 
     public static RoomDefinition ForId(int id) => id == Branch.Id ? Branch : Hub;
 }

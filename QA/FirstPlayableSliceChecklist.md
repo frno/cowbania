@@ -62,12 +62,12 @@ runtime/startup flush durability, and playback failure boundaries without termin
 
 ### Pickups and economy
 
-- [ ] Hub `(1120,448)` grants exactly one currency.
-- [ ] Hub `(1280,448)` grants one health up to three; at full health it remains available.
-- [ ] Branch `(760,448)` grants exactly one reserve ammo without changing cylinder ammo.
-- [ ] Branch `(1440,448)` grants exactly one currency.
+- [ ] Every coin grants exactly 100 points and advances the current-room collected/total coin display once.
+- [ ] All 23 coins can be collected, including the elevated aqueduct, ridge, canyon-crown, and dynamite-terrace trails.
+- [ ] Health grants one health up to three; at full health it remains available.
+- [ ] Reserve ammo grants exactly one reserve round without changing cylinder ammo.
 - [ ] Each successfully collected pickup plays the existing pickup sound once and cannot be collected again.
-- [ ] The HUD visibly reports currency and reserve ammo remains runtime state only.
+- [ ] The centered top HUD visibly reports global score and current-room coin progress: Dustwind Crossing has 9 and Rattlesnake Run has 14; reserve ammo remains runtime state only.
 
 ### Health and checkpoint
 
@@ -76,10 +76,12 @@ runtime/startup flush durability, and playback failure boundaries without termin
 - [ ] Zero health respawns at the runtime checkpoint rather than creating a save file.
 - [ ] Branch checkpoint activation records both branch room and authored checkpoint position.
 - [ ] Shortcut return records both hub room and authored hub checkpoint position.
-- [ ] Death preserves collected pickups, currency, reserve ammo, shortcut state, and active checkpoint.
-- [ ] Leaving and relaunching resets pickups, currency, reserve ammo, shortcut, checkpoint, and completion state.
+- [ ] Death preserves collected pickups, score, coin progress, reserve ammo, shortcut state, and active checkpoint.
+- [ ] Leaving and relaunching resets pickups, score, coin progress, reserve ammo, shortcut, checkpoint, and completion state.
 
 ### Shortcut objective
+
+- [ ] Touching the hanging rope on Dustwind Crossing's far-right trail bell enters Rattlesnake Run automatically; no hidden `E` input is required.
 
 - [ ] Interacting within 42 units of the branch shortcut unlocks it and returns to the hub-side shortcut.
 - [ ] A hub death after shortcut return respawns in the hub at the active hub checkpoint.
@@ -201,7 +203,7 @@ clock gates without opening a graphical window.
 - [ ] Every rendered ground/platform top aligns with its collision boundary to within **one rendered
   pixel** at 1024x576.
 - [ ] No prop, skyline edge, background rim, or decorative silhouette reads as a false platform.
-- [ ] Player, bandit, wildlife, currency, health, ammo, checkpoint, shortcut, and attack states are
+- [ ] Player, bandit, wildlife, coin, health, ammo, checkpoint, shortcut, and attack states are
   identifiable by silhouette/icon/pose without depending on hue.
 - [ ] Check grayscale plus protanopia, deuteranopia, and tritanopia simulations; hazards, pickups,
   interactables, and telegraphs retain a non-color identification cue.
@@ -215,7 +217,7 @@ clock gates without opening a graphical window.
   visible and stable.
 - [ ] Pixel edges remain crisp during camera movement: no filtering, subpixel shimmer, scaling
   blur, seams, or non-integer sprite growth.
-- [ ] HUD uses the authored heart, ammo, currency, and slot iconography and remains readable against
+- [ ] HUD uses the authored heart, ammo, coin, and slot iconography and remains readable against
   both room backgrounds.
 - [ ] Remove one required Frontier PNG from a disposable packaged copy and confirm startup reports
   the exact missing relative path instead of silently substituting a placeholder or rectangle.

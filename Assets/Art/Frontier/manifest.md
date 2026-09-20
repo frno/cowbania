@@ -16,12 +16,12 @@ Locally generated pixel art for Cowbania's Dust-Gothic Frontier presentation.
 | Wildlife | 16x16 | `patrol_0..3`, `notice_0..1`, `lunge_0..3`, `defeated_0..1` |
 | Armadillo | 16x16 | `patrol_0..3`, `notice_0..1`, `roll_0..3` |
 | Snake | 16x16 | `hidden_0..1`, `rise_0..1`, `exposed_0..3`, `retreat_0..1`, `defeated_0..1` |
-| Pickups | 16x16 | Currency, Health, and Ammo `float_0..3` |
+| Pickups | 16x16 | Coin, Health, and Ammo `float_0..3` |
 | Terrain | 16x16 | `ground_cap`, `ground_body`, `platform_left`, `platform_middle`, `platform_right`, `timber_support`, `stone`, `mine_reinforcement` |
 | Props | 16x16 | `cactus_0`, `cactus_1`, `crate`, `sign` |
-| Props | 32x32 | `checkpoint`, `shortcut`, `transition_gate`, `wagon_debris`, `mine_timber` |
+| Props | 32x32 | `checkpoint`, `shortcut`, `transition_gate`, `trail_bell`, `wagon_debris`, `mine_timber` |
 | Effects | 16x16 | `muzzle_0..2`, `impact_0..2`, `dust_0..2`, `dash_0..2`, `hurt_0..1`, `defeat_0..2`, `pickup_0..3` |
-| UI | 16x16 | `heart_full`, `heart_empty`, `ammo_full`, `ammo_empty`, `currency`, `slot_frame`, `panel_corner` |
+| UI | 16x16 | `heart_full`, `heart_empty`, `ammo_full`, `ammo_empty`, `coin`, `slot_frame`, `panel_corner` |
 | Background | 256x144 | `hub_far`, `hub_mid`, `branch_far`, `branch_mid` |
 
 All PNGs are RGBA with transparent backgrounds. Backgrounds contain only scenery silhouettes, not an opaque sky, and may be tiled or stretched behind the authored room.
@@ -34,6 +34,7 @@ All PNGs are RGBA with transparent backgrounds. Backgrounds contain only scenery
 - Bandit, wildlife, armadillo, and snake frames share a stable bottom-aligned 16x16 source box.
 - Render at integer scale with nearest-neighbor / `PointClamp`; do not filter, antialias, or resample.
 - Props use bottom-center placement unless room metadata specifies another origin.
+- The Dustwind exit is a tall trail bell with a hanging rope. Touching the rope rings the route open and enters Rattlesnake Run without an interaction key.
 
 ## Palette
 
@@ -65,7 +66,7 @@ Lighting is upper-left. Foreground silhouettes use the dark plum outline and war
 - Armadillos are low rounded shell hazards with a visible telegraph-gold fuse ember; their charge pose stays compact and never collapses into a flat ground-parallel blob.
 - Snake hidden poses must read as active foreground hazard markers even with no visible body; exposed poses rise into an upright strike-ready S-curve/cobra silhouette rather than a decorative rope or dune tuft.
 - The Player silhouette reads as a wide-brim-hatted gunslinger: dark cowboy-hat brim wider than the shoulders, brim-shadowed eye slit with a single warm glint on the visible eye, thick mustache bar, red kerchief, rust poncho with a bone-colored woven stripe and shadowed hem, belt+buckle, blue pants, deep boots with a gold spur accent. Upper-left lighting is enforced by asymmetric brim and poncho highlights so the character cannot be misread as a baseball-capped generic figure.
-- Currency is a diamond token, health is a heart, and ammo is a twin-cartridge box: pickup identity never depends on tint alone.
+- Coins are round, outlined gold tokens with a square center stamp; health is a heart and ammo is a twin-cartridge box, so pickup identity never depends on tint alone.
 - Notice, attack, hurt, dash, defeat, and collection use silhouette, pose, particles, or motion streaks as well as color.
 - Telegraph gold and damage red are accents only; their shapes remain legible in greyscale.
 

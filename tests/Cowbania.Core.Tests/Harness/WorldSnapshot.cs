@@ -4,7 +4,7 @@ internal static class WorldSnapshots
 {
     public static WorldSnapshot CaptureWorld(GameWorld game) => new(
         game.PlayerPosition, game.PlayerVelocity, game.CheckpointPosition, game.CheckpointRoom,
-        game.Health, game.Ammo, game.ReserveAmmo, game.Currency, game.SelectedWeaponSlot,
+        game.Health, game.Ammo, game.ReserveAmmo, game.Score, game.SelectedWeaponSlot,
         game.CollectedPickupCount, game.Room, game.AimDirection, game.FacingDirection,
         game.IsPaused, game.ShortcutUnlocked, game.Completed, game.Projectiles.ToArray(),
         game.Enemies.ToArray(), GetField<float>(game, "dashTimer"),
@@ -20,7 +20,7 @@ internal readonly record struct WorldSnapshot(
     int Health,
     int Ammo,
     int ReserveAmmo,
-    int Currency,
+    int Score,
     int SelectedWeaponSlot,
     int CollectedPickupCount,
     int Room,
@@ -45,7 +45,7 @@ internal readonly record struct WorldSnapshot(
         Health == other.Health &&
         Ammo == other.Ammo &&
         ReserveAmmo == other.ReserveAmmo &&
-        Currency == other.Currency &&
+        Score == other.Score &&
         SelectedWeaponSlot == other.SelectedWeaponSlot &&
         CollectedPickupCount == other.CollectedPickupCount &&
         Room == other.Room &&

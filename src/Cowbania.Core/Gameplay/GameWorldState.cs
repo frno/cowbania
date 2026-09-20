@@ -26,7 +26,7 @@ internal sealed class GameWorldState
     internal int Health = GameWorld.MaximumHealth;
     internal int Ammo = 6;
     internal int ReserveAmmo;
-    internal int Currency;
+    internal int Score;
     internal int SelectedWeaponSlot = 1;
     internal JumpRequestOutcome LastJumpRequestOutcome;
     internal bool PlayerShotAcceptedThisUpdate;

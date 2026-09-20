@@ -17,8 +17,8 @@ internal static class PickupSystem
 
             switch (pickup.Type)
             {
-                case PickupType.Currency:
-                    state.Currency++;
+                case PickupType.Coin:
+                    state.Score += GameWorld.PointsPerCoin;
                     break;
                 case PickupType.Health:
                     state.Health = Math.Min(GameWorld.MaximumHealth, state.Health + 1);

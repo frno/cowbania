@@ -37,14 +37,14 @@ internal static class FrontierAssetLoader
             "timber_support", "stone", "mine_reinforcement");
         var props = LoadNamed(graphicsDevice, "Props", 16, 16, "cactus_0", "cactus_1", "crate", "sign");
         AddNamed(graphicsDevice, props, "Props", 32, 32,
-            "checkpoint", "shortcut", "transition_gate", "wagon_debris", "mine_timber");
+            "checkpoint", "shortcut", "transition_gate", "trail_bell", "wagon_debris", "mine_timber");
         var effects = LoadNamed(graphicsDevice, "Effects", 16, 16,
             "muzzle_0", "muzzle_1", "muzzle_2", "impact_0", "impact_1", "impact_2",
             "dust_0", "dust_1", "dust_2", "dash_0", "dash_1", "dash_2",
             "hurt_0", "hurt_1", "defeat_0", "defeat_1", "defeat_2",
             "pickup_0", "pickup_1", "pickup_2", "pickup_3");
         var ui = LoadNamed(graphicsDevice, "UI", 16, 16,
-            "heart_full", "heart_empty", "ammo_full", "ammo_empty", "currency", "slot_frame", "panel_corner");
+            "heart_full", "heart_empty", "ammo_full", "ammo_empty", "coin", "slot_frame", "panel_corner");
         var backgrounds = LoadNamed(graphicsDevice, "Background", 256, 144,
             "hub_far", "hub_mid", "branch_far", "branch_mid");
         StartupDiagnostics.Mark(

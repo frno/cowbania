@@ -56,15 +56,16 @@ internal static class WorldTests
             {
                 var expected = new[]
                             {
-                                (RoomCatalog.Hub, 0, "Dustwind Crossing", new RoomRect(0, 0, 5200, 576), new Vector2(80, 480), new Vector2(80, 480), new Vector2(4960, 480)),
-                                (RoomCatalog.Branch, 1, "Rattlesnake Run", new RoomRect(0, 0, 6400, 576), new Vector2(40, 480), new Vector2(2784, 360), new Vector2(6200, 480))
+                                (RoomCatalog.Hub, 0, "Dustwind Crossing", new RoomRect(0, 0, 5200, 576), new Vector2(80, 480), new Vector2(80, 480), new Vector2(4960, 480), (Vector2?)new Vector2(5120, 480)),
+                                (RoomCatalog.Branch, 1, "Rattlesnake Run", new RoomRect(0, 0, 6400, 576), new Vector2(40, 480), new Vector2(2784, 360), new Vector2(6200, 480), null)
                             };
 
-                            foreach (var (room, id, name, bounds, spawn, checkpoint, shortcut) in expected)
+                            foreach (var (room, id, name, bounds, spawn, checkpoint, shortcut, exit) in expected)
                             {
                                 Assert(room.Id == id && room.Name == name, $"{name} identity remains authored");
                                 Assert(room.Bounds == bounds, $"{name} bounds remain authored");
-                                Assert(room.Spawn == spawn && room.Checkpoint == checkpoint && room.Shortcut == shortcut,
+                                Assert(room.Spawn == spawn && room.Checkpoint == checkpoint &&
+                                       room.Shortcut == shortcut && room.Exit == exit,
                                     $"{name} interaction anchors remain authored");
                             }
 
@@ -72,8 +73,10 @@ internal static class WorldTests
                                 "the expanded rooms retain all authored ground and platform surfaces");
                             Assert(RoomCatalog.Hub.EnemyDefinitions.Length == 9 && RoomCatalog.Branch.EnemyDefinitions.Length == 13,
                                 "the expanded rooms retain their complete encounter sequences");
-                            Assert(RoomCatalog.Hub.Pickups.Length == 5 && RoomCatalog.Branch.Pickups.Length == 7,
+                            Assert(RoomCatalog.Hub.Pickups.Length == 12 && RoomCatalog.Branch.Pickups.Length == 18,
                                 "the expanded rooms retain their optional reward trail");
+                            Assert(RoomCatalog.TotalCoins == 23,
+                                "the complete level exposes the authored coin total");
             });
             yield return new TestCase("expanded level content stays supported unique and traversable", () =>
             {
@@ -91,7 +94,8 @@ internal static class WorldTests
                             foreach (var room in rooms)
                             {
                                 var supportPoints = room.EnemySpawns
-                                    .Concat(new[] { room.Spawn, room.Checkpoint, room.Shortcut });
+                                    .Concat(new[] { room.Spawn, room.Checkpoint, room.Shortcut })
+                                    .Concat(room.Exit is { } exit ? new[] { exit } : []);
                                 foreach (var point in supportPoints)
                                     Assert(room.Solids.Any(solid => point.Y == solid.Y && point.X >= solid.X && point.X <= solid.Right),
                                         $"{room.Name} anchor {point} stands on authored collision geometry");
@@ -144,7 +148,7 @@ internal static class WorldTests
             {
                 var before = new[] { RoomCatalog.Hub, RoomCatalog.Branch }
                                 .Select(room => (Id: room.Id, Name: room.Name, Bounds: room.Bounds, Solids: room.Solids.ToArray(),
-                                    Spawn: room.Spawn, Checkpoint: room.Checkpoint, Shortcut: room.Shortcut,
+                                    Spawn: room.Spawn, Checkpoint: room.Checkpoint, Shortcut: room.Shortcut, Exit: room.Exit,
                                     EnemySpawns: room.EnemySpawns.ToArray(), Pickups: room.Pickups.ToArray()))
                                 .ToArray();
                             var game = new GameWorld();
@@ -155,7 +159,7 @@ internal static class WorldTests
 
                             var after = new[] { RoomCatalog.Hub, RoomCatalog.Branch }
                                 .Select(room => (Id: room.Id, Name: room.Name, Bounds: room.Bounds, Solids: room.Solids.ToArray(),
-                                    Spawn: room.Spawn, Checkpoint: room.Checkpoint, Shortcut: room.Shortcut,
+                                    Spawn: room.Spawn, Checkpoint: room.Checkpoint, Shortcut: room.Shortcut, Exit: room.Exit,
                                     EnemySpawns: room.EnemySpawns.ToArray(), Pickups: room.Pickups.ToArray()))
                                 .ToArray();
                             Assert(before.Length == after.Length &&
@@ -167,6 +171,7 @@ internal static class WorldTests
                                         pair.First.Spawn == pair.Second.Spawn &&
                                         pair.First.Checkpoint == pair.Second.Checkpoint &&
                                         pair.First.Shortcut == pair.Second.Shortcut &&
+                                        pair.First.Exit == pair.Second.Exit &&
                                         pair.First.EnemySpawns.SequenceEqual(pair.Second.EnemySpawns) &&
                                         pair.First.Pickups.SequenceEqual(pair.Second.Pickups)),
                                 "room metadata remains unchanged after simulation updates");
@@ -180,6 +185,24 @@ internal static class WorldTests
                                 Assert(IsSupported(room, room.Checkpoint), $"{room.Name} checkpoint is supported");
                                 Assert(IsSupported(room, room.Shortcut), $"{room.Name} shortcut is supported");
                             }
+            });
+            yield return new TestCase("reaching the hub exit automatically enters the branch", () =>
+            {
+                var game = new GameWorld();
+                            var exit = RoomCatalog.Hub.Exit!.Value;
+                            SetProperty(game, nameof(GameWorld.PlayerPosition),
+                                exit - new Vector2(GameWorld.InteractionRadius + 1, 0));
+
+                            game.Update(default, 0f);
+                            Assert(game.Room == RoomCatalog.Hub.Id,
+                                "standing outside the trail-bell rope radius stays in Dustwind Crossing");
+
+                            game.Update(new InputFrame(1, false, false, Vector2.Zero, false, false, false, false), 0.01f);
+
+                            Assert(game.Room == RoomCatalog.Branch.Id,
+                                "touching the visible trail-bell rope enters the second room without a hidden interaction");
+                            Assert(game.PlayerPosition == RoomCatalog.Branch.Spawn && game.PlayerVelocity == Vector2.Zero,
+                                "automatic room entry lands at the authored branch spawn with no carried velocity");
             });
             yield return new TestCase("slot one selection is idempotent and slots two through ten are unavailable", () =>
             {

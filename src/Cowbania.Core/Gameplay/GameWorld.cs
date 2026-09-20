@@ -24,6 +24,7 @@ public sealed class GameWorld
     public const float InteractionRadius = 42f;
     public const float PickupRadius = 32f;
     public const float PickupHoverHeight = 20f;
+    public const int PointsPerCoin = 100;
     public const int MaximumHealth = 3;
     public const int EnemyMaximumHealth = 2;
     public const float EnemyNoticeDuration = 0.30f;
@@ -92,11 +93,17 @@ public sealed class GameWorld
         get => state.ReserveAmmo;
         private set => state.ReserveAmmo = value;
     }
-    public int Currency
+    public int Score
     {
-        get => state.Currency;
-        private set => state.Currency = value;
+        get => state.Score;
+        private set => state.Score = value;
     }
+    public int CoinsCollected => state.CollectedPickupIds.Count(id =>
+        RoomCatalog.AllPickupsById.TryGetValue(id, out var pickup) && pickup.Type == PickupType.Coin);
+    public int TotalCoins => RoomCatalog.TotalCoins;
+    public int CurrentRoomCoinsCollected => state.CurrentRoom.Pickups.Count(pickup =>
+        pickup.Type == PickupType.Coin && state.CollectedPickupIds.Contains(pickup.Id));
+    public int CurrentRoomTotalCoins => state.CurrentRoom.Pickups.Count(pickup => pickup.Type == PickupType.Coin);
     public int SelectedWeaponSlot
     {
         get => state.SelectedWeaponSlot;
@@ -190,6 +197,8 @@ public sealed class GameWorld
             WorldProgressionSystem.RecoverFromFall(state);
             return;
         }
+        if (WorldProgressionSystem.TryEnterBranch(state))
+            return;
 
         if (ProjectileSystem.Update(state, elapsedSeconds))
             return;

@@ -111,8 +111,8 @@ public static class FrontierAnimationCatalog
     public static ImmutableDictionary<PickupType, AnimationClip> PickupClips { get; } =
         new Dictionary<PickupType, AnimationClip>
         {
-            [PickupType.Currency] =
-                Clip("currency_float", "Frontier/Pickup/Currency", "float", 4, 6f),
+            [PickupType.Coin] =
+                Clip("coin_float", "Frontier/Pickup/Coin", "float", 4, 6f),
             [PickupType.Health] =
                 Clip("health_float", "Frontier/Pickup/Health", "float", 4, 6f),
             [PickupType.ReserveAmmo] =
@@ -122,7 +122,7 @@ public static class FrontierAnimationCatalog
     public static AnimationClip For(PresentationAnimationState state) => state switch
     {
         PresentationAnimationState.EnemyIdle => BanditClips[PresentationAnimationState.BanditPatrol],
-        PresentationAnimationState.PickupFloat => PickupClips[PickupType.Currency],
+        PresentationAnimationState.PickupFloat => PickupClips[PickupType.Coin],
         PresentationAnimationState.BanditPatrol or
         PresentationAnimationState.BanditNotice or
         PresentationAnimationState.BanditAttack or

@@ -83,7 +83,8 @@ internal sealed class StageRenderer(RenderContext context)
     public void DrawLandmarks(RoomDefinition room)
     {
         Prop("transition_gate", new NumericsVector2(room.Bounds.X + 24, room.Ground.Y), 3);
-        Prop("transition_gate", new NumericsVector2(room.Bounds.Right - 24, room.Ground.Y), 3, flip: true);
+        if (room.Exit is { } exit)
+            Prop("trail_bell", exit, 3);
         Prop("checkpoint", room.Checkpoint, 3);
         Prop("shortcut", room.Shortcut, 3);
     }
