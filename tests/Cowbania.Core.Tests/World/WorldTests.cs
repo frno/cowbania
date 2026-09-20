@@ -106,9 +106,9 @@ internal static class WorldTests
 
                                 foreach (var pickup in room.Pickups)
                                     Assert(room.Solids.Any(solid =>
-                                            pickup.Position.Y == solid.Y - GameWorld.PickupRadius &&
+                                            pickup.Position.Y == solid.Y - GameWorld.PickupHoverHeight &&
                                             pickup.Position.X >= solid.X && pickup.Position.X <= solid.Right),
-                                        $"{room.Name} pickup {pickup.Id} floats above a real support surface");
+                                        $"{room.Name} pickup {pickup.Id} floats at walking height above a real support surface");
                             }
             });
             yield return new TestCase("main route contains mandatory gaps and major elevation changes", () =>

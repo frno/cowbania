@@ -23,6 +23,7 @@ public sealed class GameWorld
     public const float Gravity = 1680f;
     public const float InteractionRadius = 42f;
     public const float PickupRadius = 32f;
+    public const float PickupHoverHeight = 20f;
     public const int MaximumHealth = 3;
     public const int EnemyMaximumHealth = 2;
     public const float EnemyNoticeDuration = 0.30f;

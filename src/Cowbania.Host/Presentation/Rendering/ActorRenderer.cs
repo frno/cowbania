@@ -91,13 +91,13 @@ internal sealed class ActorRenderer(
                 context.Rect(new Rectangle(x - 12, feetY - 62, 7, 4), Color.Gold);
                 context.Rect(new Rectangle(x + 5, feetY - 62, 7, 4), Color.Gold);
                 break;
-            case EnemyTelegraphMarker.BanditAimLine:
-                var aimLength = 40 + (int)(72 * progress);
-                var aimStart = x + facing * 18;
-                context.Rect(
-                    new Rectangle(facing > 0 ? aimStart : aimStart - aimLength, feetY - 27, aimLength, 2),
-                    new Color(255, 196, 72, 190));
-                context.Rect(new Rectangle(aimStart + facing * (aimLength - 3) - 2, feetY - 30, 5, 8), Color.Red);
+            case EnemyTelegraphMarker.BanditQuickDrawWarning:
+                var pulse = progress < 0.5f ? 0 : 2;
+                var warningMuzzleX = x + facing * 22;
+                context.Rect(new Rectangle(warningMuzzleX - 3 - pulse, feetY - 30 - pulse, 6 + pulse * 2, 6 + pulse * 2), Color.Gold);
+                context.Rect(new Rectangle(warningMuzzleX - 1, feetY - 34 - pulse, 2, 14 + pulse * 2), Color.White);
+                context.Rect(new Rectangle(x - 2, feetY - 66, 4, 10), Color.White);
+                context.Rect(new Rectangle(x - 2, feetY - 52, 4, 4), Color.Gold);
                 break;
             case EnemyTelegraphMarker.BanditMuzzleFlash:
                 var muzzleX = x + facing * 24;

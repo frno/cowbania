@@ -45,25 +45,25 @@ internal static class PickupsTests
                             Assert(game.Ammo == 6 && game.ReserveAmmo == 1,
                                 "reload restores only the cylinder and leaves reserve ammo unchanged");
             });
-            yield return new TestCase("grounded horizontal contact collects pickups at but not beyond the radius", () =>
+            yield return new TestCase("grounded players collect lowered pickups without exact alignment", () =>
             {
                 var game = new GameWorld();
                             var pickup = RoomCatalog.Hub.PickupDefinitions[0];
-                            var approach = new Vector2(pickup.Position.X - GameWorld.PlayerSpeed * 0.1f, RoomCatalog.Hub.Ground.Y);
+                            var approach = new Vector2(pickup.Position.X - 40, RoomCatalog.Hub.Ground.Y);
                             SetProperty(game, nameof(GameWorld.PlayerPosition), approach);
 
                             game.Update(default, 0f);
                             Assert(game.Currency == 0 && game.CollectedPickupCount == 0,
                                 "a grounded player beyond the pickup radius does not collect it");
 
-                            game.Update(new InputFrame(1, false, false, Vector2.Zero, false, false, false, false), 0.1f);
+                            game.Update(new InputFrame(1, false, false, Vector2.Zero, false, false, false, false), 0.05f);
 
-                            Assert(game.PlayerPosition == new Vector2(pickup.Position.X, RoomCatalog.Hub.Ground.Y),
-                                "horizontal movement reaches the pickup directly beneath its anchor");
-                            Assert(Vector2.Distance(game.PlayerPosition, pickup.Position) == GameWorld.PickupRadius,
-                                "grounded contact is exactly at the pickup radius");
+                            Assert(game.PlayerPosition.X < pickup.Position.X,
+                                "the player collects the item before standing directly beneath it");
+                            Assert(Vector2.Distance(game.PlayerPosition, pickup.Position) < GameWorld.PickupRadius,
+                                "the lowered pickup comfortably overlaps the grounded collection radius");
                             Assert(game.Currency == 1 && game.CollectedPickupCount == 1,
-                                "grounded contact at the pickup radius collects it");
+                                "ordinary grounded movement collects the lowered pickup");
             });
             yield return new TestCase("runtime pickups economy shortcut and checkpoint survive death but not a new world", () =>
             {

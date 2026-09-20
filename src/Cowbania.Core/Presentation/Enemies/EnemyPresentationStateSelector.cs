@@ -52,7 +52,7 @@ public static class EnemyPresentationStateSelector
         var telegraphMarker = (enemy.Archetype, enemy.AttackPhase, enemy.BehaviorState) switch
         {
             (EnemyArchetype.Bandit, EnemyAttackPhase.Telegraph, _) =>
-                EnemyTelegraphMarker.BanditAimLine,
+                EnemyTelegraphMarker.BanditQuickDrawWarning,
             (EnemyArchetype.Wildlife, EnemyAttackPhase.Telegraph, _) =>
                 EnemyTelegraphMarker.WildlifeLungeArrow,
             (EnemyArchetype.Bandit, EnemyAttackPhase.Active, _) =>

@@ -42,11 +42,11 @@ public static class RoomCatalog
             new EnemyDefinition("hub-armadillo-ridge-descent", EnemyArchetype.DynamiteArmadillo, new Vector2(3650, 320), 90),
             new EnemyDefinition("hub-wildlife-gate", EnemyArchetype.Wildlife, new Vector2(4400, 480), 160, -1)),
         ImmutableArray.Create(
-            new PickupDefinition("hub-currency", new Vector2(1120, 448), PickupType.Currency),
-            new PickupDefinition("hub-health", new Vector2(1180, 448), PickupType.Health),
-            new PickupDefinition("hub-currency-telegraph", new Vector2(3360, 216), PickupType.Currency),
-            new PickupDefinition("hub-reserve-ammo-windmill", new Vector2(3650, 288), PickupType.ReserveAmmo),
-            new PickupDefinition("hub-health-branch-gate", new Vector2(4760, 448), PickupType.Health)));
+            new PickupDefinition("hub-currency", new Vector2(1120, 460), PickupType.Currency),
+            new PickupDefinition("hub-health", new Vector2(1180, 460), PickupType.Health),
+            new PickupDefinition("hub-currency-telegraph", new Vector2(3360, 228), PickupType.Currency),
+            new PickupDefinition("hub-reserve-ammo-windmill", new Vector2(3650, 300), PickupType.ReserveAmmo),
+            new PickupDefinition("hub-health-branch-gate", new Vector2(4760, 460), PickupType.Health)));
 
     public static readonly RoomDefinition Branch = new(
         1, "Rattlesnake Run", new RoomRect(0, 0, 6400, 576),
@@ -90,13 +90,13 @@ public static class RoomCatalog
             new EnemyDefinition("branch-snake-final-rise", EnemyArchetype.SidewinderSnake, new Vector2(5700, 480), 0),
             new EnemyDefinition("branch-bandit-shortcut-overlook", EnemyArchetype.Bandit, new Vector2(6024, 480), 96, -1)),
         ImmutableArray.Create(
-            new PickupDefinition("branch-reserve-ammo", new Vector2(760, 448), PickupType.ReserveAmmo),
-            new PickupDefinition("branch-currency-vulture-crown", new Vector2(1770, 208), PickupType.Currency),
-            new PickupDefinition("branch-health-oasis", new Vector2(2784, 328), PickupType.Health),
-            new PickupDefinition("branch-currency-outlaw-payroll", new Vector2(3050, 328), PickupType.Currency),
-            new PickupDefinition("branch-reserve-ammo-dynamite", new Vector2(4680, 208), PickupType.ReserveAmmo),
-            new PickupDefinition("branch-health-gallows", new Vector2(5500, 448), PickupType.Health),
-            new PickupDefinition("branch-currency-shortcut", new Vector2(6024, 448), PickupType.Currency)));
+            new PickupDefinition("branch-reserve-ammo", new Vector2(760, 460), PickupType.ReserveAmmo),
+            new PickupDefinition("branch-currency-vulture-crown", new Vector2(1770, 220), PickupType.Currency),
+            new PickupDefinition("branch-health-oasis", new Vector2(2784, 340), PickupType.Health),
+            new PickupDefinition("branch-currency-outlaw-payroll", new Vector2(3050, 340), PickupType.Currency),
+            new PickupDefinition("branch-reserve-ammo-dynamite", new Vector2(4680, 220), PickupType.ReserveAmmo),
+            new PickupDefinition("branch-health-gallows", new Vector2(5500, 460), PickupType.Health),
+            new PickupDefinition("branch-currency-shortcut", new Vector2(6024, 460), PickupType.Currency)));
 
     public static RoomDefinition ForId(int id) => id == Branch.Id ? Branch : Hub;
 }

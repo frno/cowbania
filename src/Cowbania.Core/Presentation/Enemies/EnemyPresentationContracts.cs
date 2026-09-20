@@ -6,7 +6,7 @@ public enum EnemyTelegraphMarker
 {
     None,
     NoticeBurst,
-    BanditAimLine,
+    BanditQuickDrawWarning,
     BanditMuzzleFlash,
     WildlifeLungeArrow,
     WildlifeLungeTrail

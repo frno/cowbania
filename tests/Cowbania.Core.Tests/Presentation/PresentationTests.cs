@@ -36,12 +36,11 @@ internal static class PresentationTests
                             var defeated = EnemyPresentationStateSelector.Select(new EnemyState(
                                 "defeated", EnemyArchetype.Bandit, EnemyBehaviorState.Defeated, EnemyAttackPhase.None,
                                 Vector2.Zero, Vector2.Zero, 0, 0, false, 1f, 0f));
-
                             Assert(banditTelegraph.AnimationState == PresentationAnimationState.BanditAttack &&
-                                   banditTelegraph.TelegraphMarker == EnemyTelegraphMarker.BanditAimLine &&
+                                   banditTelegraph.TelegraphMarker == EnemyTelegraphMarker.BanditQuickDrawWarning &&
                                    banditTelegraph.FacingDirection == -1 &&
                                    !banditTelegraph.AttackActive,
-                                "bandit telegraph selects its ranged aim cue without becoming active");
+                                "bandit telegraph exposes its attack pose and local quick-draw warning without becoming active");
                             Assert(wildlifeActive.AnimationState == PresentationAnimationState.WildlifeLunge &&
                                    wildlifeActive.TelegraphMarker == EnemyTelegraphMarker.WildlifeLungeTrail &&
                                    wildlifeActive.AttackActive,

@@ -78,7 +78,7 @@ internal static class TestInventory
         "paused updates preserve the complete deterministic world snapshot",
         "slot one selection is idempotent and slots two through ten are unavailable",
         "typed pickups are single-use and reserve ammo is cylinder-independent",
-        "grounded horizontal contact collects pickups at but not beyond the radius",
+        "grounded players collect lowered pickups without exact alignment",
         "runtime pickups economy shortcut and checkpoint survive death but not a new world",
         "checkpoint and respawn restore room context and spawn point",
         "shortcut return establishes a coherent hub checkpoint for later death",
