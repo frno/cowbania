@@ -82,6 +82,38 @@ SFX_PROMPTS: dict[str, str] = {
         "ricochet ring, punchy arcade game sound, immediate full volume, dry and clean, "
         "no silence, no ambience, no music, no voice"
     ),
+    "BanditHit": (
+        "one loud crisp video game enemy hit, bullet striking a thick leather coat with a dry punch and cloth snap, "
+        "sound begins immediately, single impact only, no voice, no scream, no music, no reverb, no silence"
+    ),
+    "BanditDeath": (
+        "one short subdued outlaw defeat sound, boots and leather coat dropping onto dry dirt, restrained soft thud, "
+        "immediate onset, no voice, no scream, no melody, no reverb"
+    ),
+    "WildlifeHit": (
+        "one loud crisp video game enemy hit, blunt impact against thick animal hide with a low organic thump, "
+        "sound begins immediately, single impact only, no animal cry, no voice, no music, no reverb, no silence"
+    ),
+    "WildlifeDeath": (
+        "one short subdued desert animal defeat sound, light body settling into brush and dust, soft rustle and thud, "
+        "no animal cry, no voice, no melody, no reverb"
+    ),
+    "ArmadilloHit": (
+        "one loud crisp video game enemy hit, wooden mallet striking a hard hollow armadillo shell, low chunky clack, "
+        "sound begins immediately, single impact only, no bright ring, no voice, no music, no reverb, no silence"
+    ),
+    "ArmadilloDeath": (
+        "one short heavy armadillo shell collapse onto dry dirt, low hollow clack with a tiny dust tail, restrained, "
+        "no animal cry, no voice, no melody, no reverb"
+    ),
+    "SidewinderHit": (
+        "one short audible arcade impact on snake scales, crisp dry scale flick and sand tap at immediate full volume, "
+        "restrained but clearly heard, no hiss, no voice, no music, no reverb, no silence"
+    ),
+    "SidewinderDeath": (
+        "one short subdued sidewinder defeat sound, a brief dry rattle settling into sand, soft and restrained, "
+        "no hiss, no animal cry, no melody, no reverb"
+    ),
 }
 
 # Target format matching the existing placeholder WAV files exactly.
@@ -100,6 +132,14 @@ MAX_DURATION_OVERRIDES: dict[str, float] = {
     "Reload": 1.1,
     "Damage": 0.8,
     "ArmorRicochet": 0.45,
+    "BanditHit": 0.30,
+    "BanditDeath": 0.48,
+    "WildlifeHit": 0.30,
+    "WildlifeDeath": 0.48,
+    "ArmadilloHit": 0.30,
+    "ArmadilloDeath": 0.48,
+    "SidewinderHit": 0.30,
+    "SidewinderDeath": 0.48,
 }
 
 

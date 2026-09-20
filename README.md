@@ -14,13 +14,18 @@ Included systems:
 - Independent 8-direction keyboard aim
 - A revolver with six rounds, timed reload, and held-fire delay; reload restores rounds according to the prototype reload rules
 - Bandit and wildlife enemies with patrol, notice, chase, and attack behaviors
+- Armadillos deflect bullets while armored but become vulnerable during their post-roll recovery
 - Three-hit health and runtime-only checkpoint respawn
 - Smooth camera follow with room bounds
 - Score coins, health, and reserved ammo collectibles; each coin awards 100 points and reserved ammo is not active for the revolver
 - HUD for health, revolver ammo, selected slot 1, centered global score and current-room coin progress, pause, and completion
-- Sound effects for shooting, reload, jump, dash, pickups, and damage
+- Sound effects for shooting, reload, jump, dash, pickups, player damage, and distinct hit/defeat cues for every enemy archetype
 - Player animation states: idle, run, jump, fall, shoot, reload, and hurt
 - Frontier animations for other visible animated objects where appropriate
+- A two-minute looping NanoGPT western title montage, dimmed over black beneath the centered Cowbania logo
+
+The title ships with cinematic and pixel-art cuts. The pixel-art cut is the default; set
+`COWBANIA_TITLE_FILM=cinematic` before launch to compare the original cinematic cut.
 
 The weapon architecture should anticipate ten future weapon slots, but only slot 1 (the revolver) is active in this prototype.
 

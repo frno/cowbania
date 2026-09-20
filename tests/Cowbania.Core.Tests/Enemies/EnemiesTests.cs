@@ -247,7 +247,7 @@ internal static class EnemiesTests
                             Assert(game.Enemy.FacingDirection == -1,
                                 "the blocked roll flips facing for the next patrol leg");
             });
-            yield return new TestCase("dynamite armadillo consumes blocked bullets and only harms during roll", () =>
+            yield return new TestCase("dynamite armadillo blocks shell hits but is vulnerable during recovery", () =>
             {
                 var game = new GameWorld();
                             SetCurrentRoomEnemies(game, new EnemyDefinition(
@@ -300,6 +300,16 @@ internal static class EnemiesTests
                             game.Update(default, 0f);
                             Assert(game.Health == GameWorld.MaximumHealth - 1,
                                 "recovery contact does not damage the player");
+
+                            projectiles.Add(new ProjectileState(game.Enemy.Position + new Vector2(0, -24), Vector2.Zero, 1));
+                            game.Update(default, 0f);
+                            Assert(game.Enemy.Health == startingHealth - 1 && game.Enemy.Alive,
+                                "the exposed armadillo takes damage during its recovery pause");
+
+                            projectiles.Add(new ProjectileState(game.Enemy.Position + new Vector2(0, -24), Vector2.Zero, 1));
+                            game.Update(default, 0f);
+                            Assert(!game.Enemy.Alive && game.Enemy.Health == 0,
+                                "a second recovery hit defeats the armadillo and makes its defeat feedback reachable");
             });
             yield return new TestCase("sidewinder snake trigger timing and re-arm require a fresh radius entry", () =>
             {

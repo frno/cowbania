@@ -49,7 +49,7 @@ internal static class TestInventory
         "projectile damage affects the intended enemy without damaging its sibling",
         "dynamite armadillo notice roll and recovery timings are deterministic",
         "dynamite armadillo roll respects leash bounds and enters recovery on impact",
-        "dynamite armadillo consumes blocked bullets and only harms during roll",
+        "dynamite armadillo blocks shell hits but is vulnerable during recovery",
         "sidewinder snake trigger timing and re-arm require a fresh radius entry",
         "sidewinder snake is defeated by a single shot while rising",
         "sidewinder snake is defeated by a single shot while exposed",

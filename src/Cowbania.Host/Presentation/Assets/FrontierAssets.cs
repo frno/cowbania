@@ -14,7 +14,8 @@ internal sealed record FrontierAssets(
     IReadOnlyDictionary<string, Texture2D> Props,
     IReadOnlyDictionary<string, Texture2D> Effects,
     IReadOnlyDictionary<string, Texture2D> Ui,
-    IReadOnlyDictionary<string, Texture2D> Backgrounds);
+    IReadOnlyDictionary<string, Texture2D> Backgrounds,
+    Texture2D TitleLogo);
 
 internal static class FrontierAssetLoader
 {
@@ -47,10 +48,11 @@ internal static class FrontierAssetLoader
             "heart_full", "heart_empty", "ammo_full", "ammo_empty", "coin", "slot_frame", "panel_corner");
         var backgrounds = LoadNamed(graphicsDevice, "Background", 256, 144,
             "hub_far", "hub_mid", "branch_far", "branch_mid");
+        var titleLogo = LoadSprite(graphicsDevice, "Title/cowbania_logo.png", 320, 128, "Title");
         StartupDiagnostics.Mark(
             $"environment sprites loaded (terrain={terrain.Count}, props={props.Count}, " +
             $"effects={effects.Count}, ui={ui.Count}, backgrounds={backgrounds.Count})");
-        return new FrontierAssets(player, bandit, wildlife, armadillo, snake, pickup, terrain, props, effects, ui, backgrounds);
+        return new FrontierAssets(player, bandit, wildlife, armadillo, snake, pickup, terrain, props, effects, ui, backgrounds, titleLogo);
     }
 
     private static Dictionary<string, Texture2D> LoadActors(

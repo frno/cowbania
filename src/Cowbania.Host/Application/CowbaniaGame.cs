@@ -7,6 +7,7 @@ using Cowbania.Host.Presentation.Camera;
 using Cowbania.Host.Presentation.Rendering;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using Microsoft.Xna.Framework.Input;
 
 namespace Cowbania.Host.Application;
 
@@ -19,9 +20,12 @@ internal sealed class CowbaniaGame : Game
     private readonly AudioEventBus audioBus;
     private readonly MusicPlayer musicPlayer;
     private readonly FrameTelemetry telemetry = new();
+    private readonly TitleScreenState titleScreen = new();
     private GameUpdateCoordinator updateCoordinator = null!;
     private FrontierAssets assets = null!;
     private GameRenderer renderer = null!;
+    private TitleFilmPlayer? titleFilm;
+    private TitleScreenRenderer titleRenderer = null!;
 
     public CowbaniaGame()
     {
@@ -70,6 +74,12 @@ internal sealed class CowbaniaGame : Game
             assets,
             timeline,
             new GameCamera());
+        titleFilm = TitleFilmPlayer.TryLoad(
+            GraphicsDevice,
+            Path.Combine(AppContext.BaseDirectory, "Assets", "Video", SelectedTitleFilm()));
+        titleRenderer = new TitleScreenRenderer(
+            new RenderContext(GraphicsDevice, spriteBatch, pixel, assets, new GameCamera()),
+            titleFilm);
         StartupDiagnostics.Mark("LoadContent complete");
     }
 
@@ -80,6 +90,14 @@ internal sealed class CowbaniaGame : Game
             StartupDiagnostics.Mark("first Update");
 
         musicPlayer.Update();
+        if (!titleScreen.HasStarted)
+        {
+            titleScreen.Update(Keyboard.GetState().IsKeyDown(Keys.Enter));
+            titleFilm?.Update((float)gameTime.ElapsedGameTime.TotalSeconds);
+            base.Update(gameTime);
+            telemetry.EndUpdate(measurement, gameTime, world);
+            return;
+        }
         updateCoordinator.Update((float)gameTime.ElapsedGameTime.TotalSeconds);
         base.Update(gameTime);
         telemetry.EndUpdate(measurement, gameTime, world);
@@ -91,8 +109,26 @@ internal sealed class CowbaniaGame : Game
         if (telemetry.MarkFirstDraw())
             StartupDiagnostics.Mark("first Draw; startup ready");
 
-        renderer.Draw(world);
+        if (titleScreen.HasStarted)
+            renderer.Draw(world);
+        else
+            titleRenderer.Draw();
         base.Draw(gameTime);
         telemetry.EndDraw(measurement, gameTime, world);
     }
+
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing)
+            titleFilm?.Dispose();
+        base.Dispose(disposing);
+    }
+
+    internal static string SelectedTitleFilm() =>
+        string.Equals(
+            Environment.GetEnvironmentVariable("COWBANIA_TITLE_FILM"),
+            "cinematic",
+            StringComparison.OrdinalIgnoreCase)
+            ? "cowbania_title_loop.cwvf"
+            : "cowbania_title_pixel_loop.cwvf";
 }

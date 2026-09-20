@@ -96,6 +96,43 @@ internal static class AudioTests
                 Assert(playback.PlayCount == 1,
                     "a blocked armadillo shot dispatches the distinctive armor ricochet once");
             });
+            yield return new TestCase("each enemy archetype routes unique short hit and death audio without stacking", () =>
+            {
+                var root = FindRepositoryRoot();
+                var expectedEvents = new Dictionary<EnemyArchetype, (AudioEvent Hit, AudioEvent Death)>
+                {
+                    [EnemyArchetype.Bandit] = (AudioEvent.BanditHit, AudioEvent.BanditDeath),
+                    [EnemyArchetype.Wildlife] = (AudioEvent.WildlifeHit, AudioEvent.WildlifeDeath),
+                    [EnemyArchetype.DynamiteArmadillo] = (AudioEvent.ArmadilloHit, AudioEvent.ArmadilloDeath),
+                    [EnemyArchetype.SidewinderSnake] = (AudioEvent.SidewinderHit, AudioEvent.SidewinderDeath)
+                };
+                foreach (var audioEvent in expectedEvents.Values.SelectMany(events => new[] { events.Hit, events.Death }))
+                {
+                    var path = Path.Combine(root, "Assets", "Audio", $"SFX_{audioEvent}.wav");
+                    var wav = ManagedPcmWav.Read(File.ReadAllBytes(path));
+                    var duration = wav.PcmData.Length / 2f / wav.SampleRate;
+                    Assert(wav.SampleRate == 44100 &&
+                           wav.Channels == Microsoft.Xna.Framework.Audio.AudioChannels.Mono,
+                        $"{audioEvent} uses the managed 44.1 kHz mono PCM contract");
+                    Assert(duration > 0.03f && duration <= 0.5f,
+                        $"{audioEvent} remains a short non-irritating cue, found {duration:F2}s");
+                }
+
+                foreach (var (archetype, expected) in expectedEvents)
+                {
+                    var health = archetype == EnemyArchetype.SidewinderSnake ? 1 : GameWorld.EnemyMaximumHealth;
+                    var previous = EnemySnapshot("enemy", archetype, health, alive: true);
+                    var hit = EnemySnapshot("enemy", archetype, health - 1, alive: true);
+                    var defeated = EnemySnapshot("enemy", archetype, 0, alive: false);
+
+                    Assert(AudioFeedbackRouter.EnemyDamageEvents([previous], [hit])
+                            .SequenceEqual([expected.Hit]),
+                        $"{archetype} damage emits its unique hit cue");
+                    Assert(AudioFeedbackRouter.EnemyDamageEvents([previous], [defeated])
+                            .SequenceEqual([expected.Death]),
+                        $"{archetype} defeat emits only its unique death cue instead of stacking hit audio");
+                }
+            });
             yield return new TestCase("managed WAV decoding rejects invalid input", () =>
             {
                 var exception = AssertThrows<InvalidDataException>(
@@ -335,4 +372,18 @@ internal static class AudioTests
             });
         }
     }
+
+    private static EnemyState EnemySnapshot(string id, EnemyArchetype archetype, int health, bool alive) =>
+        new(
+            id,
+            archetype,
+            alive ? EnemyBehaviorState.Patrol : EnemyBehaviorState.Defeated,
+            EnemyAttackPhase.None,
+            default,
+            default,
+            1,
+            health,
+            alive,
+            alive ? 0f : 1f,
+            0f);
 }

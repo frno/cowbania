@@ -70,7 +70,7 @@ internal sealed class EnemyRuntime
 
     internal void Damage(int damage)
     {
-        if (!Alive || damage <= 0 || Definition.Archetype == EnemyArchetype.DynamiteArmadillo)
+        if (!Alive || damage <= 0)
             return;
 
         Health -= damage;

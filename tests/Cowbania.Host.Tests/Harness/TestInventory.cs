@@ -12,6 +12,7 @@ internal static class TestInventory
         "managed WAV decoding accepts PCM without native file decoding",
         "bundled jump audio is valid managed PCM",
         "armadillo blocked-shot feedback routes to valid armor audio",
+        "each enemy archetype routes unique short hit and death audio without stacking",
         "managed WAV decoding rejects invalid input",
         "successful audio load is cached and played",
         "unsuccessful playback disables retries and falls back to silence",
@@ -38,6 +39,8 @@ internal static class TestInventory
         "Frontier renderer preserves sampling geometry depth and snapshot contracts",
         "Frontier output copy and explicit missing asset behavior are enforced",
         "HUD and combat telegraphs include non-color identity cues",
+        "title screen starts only on a fresh Enter press",
+        "title film loops behind a centered opaque logo",
     ];
 
     public static void Validate(IReadOnlyList<TestCase> cases)

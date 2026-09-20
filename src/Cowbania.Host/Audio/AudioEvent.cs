@@ -8,5 +8,13 @@ internal enum AudioEvent
     Dash,
     Pickup,
     Damage,
-    ArmorRicochet
+    ArmorRicochet,
+    BanditHit,
+    BanditDeath,
+    WildlifeHit,
+    WildlifeDeath,
+    ArmadilloHit,
+    ArmadilloDeath,
+    SidewinderHit,
+    SidewinderDeath
 }

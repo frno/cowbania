@@ -12,7 +12,9 @@
   </ItemGroup>
   <ItemGroup>
     <Content Include="..\..\Assets\Art\Frontier\**\*.png" Link="Assets\Art\Frontier\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\..\Assets\Art\Title\*.png" Link="Assets\Art\Title\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="..\..\Assets\Audio\*.wav" Link="Assets\Audio\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\..\Assets\Video\*.cwvf" Link="Assets\Video\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="Cowbania.Host.Tests" />

@@ -14,7 +14,15 @@ internal sealed class AudioEventBus
         [AudioEvent.Dash] = "SFX_Dash.wav",
         [AudioEvent.Pickup] = "SFX_Pickup.wav",
         [AudioEvent.Damage] = "SFX_Damage.wav",
-        [AudioEvent.ArmorRicochet] = "SFX_ArmorRicochet.wav"
+        [AudioEvent.ArmorRicochet] = "SFX_ArmorRicochet.wav",
+        [AudioEvent.BanditHit] = "SFX_BanditHit.wav",
+        [AudioEvent.BanditDeath] = "SFX_BanditDeath.wav",
+        [AudioEvent.WildlifeHit] = "SFX_WildlifeHit.wav",
+        [AudioEvent.WildlifeDeath] = "SFX_WildlifeDeath.wav",
+        [AudioEvent.ArmadilloHit] = "SFX_ArmadilloHit.wav",
+        [AudioEvent.ArmadilloDeath] = "SFX_ArmadilloDeath.wav",
+        [AudioEvent.SidewinderHit] = "SFX_SidewinderHit.wav",
+        [AudioEvent.SidewinderDeath] = "SFX_SidewinderDeath.wav"
     };
     private static readonly IReadOnlyDictionary<AudioEvent, float> Volumes = new Dictionary<AudioEvent, float>
     {
@@ -24,7 +32,15 @@ internal sealed class AudioEventBus
         [AudioEvent.Dash] = 0.85f,
         [AudioEvent.Pickup] = 0.8f,
         [AudioEvent.Damage] = 0.8f,
-        [AudioEvent.ArmorRicochet] = 0.9f
+        [AudioEvent.ArmorRicochet] = 0.9f,
+        [AudioEvent.BanditHit] = 0.55f,
+        [AudioEvent.BanditDeath] = 0.6f,
+        [AudioEvent.WildlifeHit] = 0.55f,
+        [AudioEvent.WildlifeDeath] = 0.6f,
+        [AudioEvent.ArmadilloHit] = 0.55f,
+        [AudioEvent.ArmadilloDeath] = 0.6f,
+        [AudioEvent.SidewinderHit] = 0.55f,
+        [AudioEvent.SidewinderDeath] = 0.6f
     };
 
     private readonly Dictionary<AudioEvent, IAudioPlayback> effects;

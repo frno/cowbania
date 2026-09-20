@@ -18,11 +18,42 @@ internal sealed class AudioFeedbackRouter(AudioEventBus audioBus)
         if (world.ArmadilloShotBlockedThisUpdate) audioBus.Play(AudioEvent.ArmorRicochet);
         if (world.Health < signals.PreviousHealth) audioBus.Play(AudioEvent.Damage);
         if (world.CollectedPickupCount > signals.PreviousPickupCount) audioBus.Play(AudioEvent.Pickup);
+        foreach (var enemyAudioEvent in EnemyDamageEvents(signals.PreviousEnemies, world.Enemies))
+            audioBus.Play(enemyAudioEvent);
         if (StartedAttack(signals.PreviousEnemies, world.Enemies, EnemyArchetype.Bandit))
             audioBus.Play(AudioEvent.Shooting);
         if (StartedAttack(signals.PreviousEnemies, world.Enemies, EnemyArchetype.Wildlife))
             audioBus.Play(AudioEvent.Dash);
     }
+
+    internal static IEnumerable<AudioEvent> EnemyDamageEvents(
+        IReadOnlyList<EnemyState> previousEnemies,
+        IReadOnlyList<EnemyState> currentEnemies)
+    {
+        var previousById = previousEnemies.ToDictionary(enemy => enemy.Id, StringComparer.Ordinal);
+        foreach (var enemy in currentEnemies)
+        {
+            if (!previousById.TryGetValue(enemy.Id, out var previous) ||
+                !previous.Alive || enemy.Health >= previous.Health)
+                continue;
+
+            yield return ForEnemyDamage(enemy.Archetype, defeated: !enemy.Alive);
+        }
+    }
+
+    private static AudioEvent ForEnemyDamage(EnemyArchetype archetype, bool defeated) =>
+        (archetype, defeated) switch
+        {
+            (EnemyArchetype.Bandit, false) => AudioEvent.BanditHit,
+            (EnemyArchetype.Bandit, true) => AudioEvent.BanditDeath,
+            (EnemyArchetype.Wildlife, false) => AudioEvent.WildlifeHit,
+            (EnemyArchetype.Wildlife, true) => AudioEvent.WildlifeDeath,
+            (EnemyArchetype.DynamiteArmadillo, false) => AudioEvent.ArmadilloHit,
+            (EnemyArchetype.DynamiteArmadillo, true) => AudioEvent.ArmadilloDeath,
+            (EnemyArchetype.SidewinderSnake, false) => AudioEvent.SidewinderHit,
+            (EnemyArchetype.SidewinderSnake, true) => AudioEvent.SidewinderDeath,
+            _ => throw new ArgumentOutOfRangeException(nameof(archetype))
+        };
 
     private static bool StartedAttack(
         IReadOnlyList<EnemyState> previousEnemies,

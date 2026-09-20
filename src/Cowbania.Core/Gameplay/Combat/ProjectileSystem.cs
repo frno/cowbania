@@ -25,7 +25,8 @@ internal static class ProjectileSystem
                         continue;
                     }
 
-                    if (enemy.Definition.Archetype == EnemyArchetype.DynamiteArmadillo)
+                    if (enemy.Definition.Archetype == EnemyArchetype.DynamiteArmadillo &&
+                        !CanBeHitByPlayerProjectile(enemy))
                     {
                         state.ArmadilloShotBlockedThisUpdate = true;
                         state.Projectiles.RemoveAt(i);
@@ -74,7 +75,8 @@ internal static class ProjectileSystem
 
     private static bool CanBeHitByPlayerProjectile(EnemyRuntime enemy) => enemy.Definition.Archetype switch
     {
-        EnemyArchetype.DynamiteArmadillo => false,
+        EnemyArchetype.DynamiteArmadillo => enemy.BehaviorState == EnemyBehaviorState.Attack &&
+                                             enemy.AttackPhase == EnemyAttackPhase.Recovery,
         EnemyArchetype.SidewinderSnake => enemy.BehaviorState == EnemyBehaviorState.Attack &&
                                           enemy.AttackPhase is EnemyAttackPhase.Telegraph or EnemyAttackPhase.Active,
         _ => true
