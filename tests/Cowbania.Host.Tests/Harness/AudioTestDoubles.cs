@@ -94,3 +94,11 @@ internal sealed class ThrowingMusicLoader : IMusicLoader
         throw new InvalidDataException("test managed music decode failure");
     }
 }
+
+internal sealed class StubAudioInitialization(AudioInitializationState state) : IAudioInitialization
+{
+    public AudioInitializationState State { get; set; } = state;
+    public Exception? Failure { get; set; }
+    public int StartCount { get; private set; }
+    public void Start() => StartCount++;
+}

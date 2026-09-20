@@ -176,6 +176,42 @@ internal static class AudioTests
                     File.Delete(path);
                 }
             });
+            yield return new TestCase("pending audio initialization keeps sound events responsive", () =>
+            {
+                var playback = new RecordingPlayback();
+                var initialization = new StubAudioInitialization(AudioInitializationState.Pending);
+                var audio = new AudioEventBus(
+                    new Dictionary<AudioEvent, IAudioPlayback> { [AudioEvent.Jump] = playback },
+                    audioInitialization: initialization);
+
+                audio.Play(AudioEvent.Jump);
+                Assert(playback.PlayCount == 0, "pending device initialization returns without playing");
+
+                initialization.State = AudioInitializationState.Ready;
+                audio.Play(AudioEvent.Jump);
+                Assert(playback.PlayCount == 1, "the same event plays after device initialization succeeds");
+                Assert(ReadRuntimeLog().Contains("reason=device-initialization-pending fallback=silence"),
+                    "temporary silence while initialization is pending is logged");
+            });
+            yield return new TestCase("failed audio initialization permanently disables sound events", () =>
+            {
+                var playback = new RecordingPlayback();
+                var initialization = new StubAudioInitialization(AudioInitializationState.Failed)
+                {
+                    Failure = new InvalidOperationException("test device failure")
+                };
+                var audio = new AudioEventBus(
+                    new Dictionary<AudioEvent, IAudioPlayback> { [AudioEvent.Jump] = playback },
+                    audioInitialization: initialization);
+
+                audio.Play(AudioEvent.Jump);
+                initialization.State = AudioInitializationState.Ready;
+                audio.Play(AudioEvent.Jump);
+
+                Assert(playback.PlayCount == 0, "a device initialization failure disables later retries");
+                Assert(ReadRuntimeLog().Contains("stage=device-initialization disabled=true fallback=silence"),
+                    "device initialization failure records a terminal silent fallback");
+            });
             yield return new TestCase("music start is a no-op when the file is missing", () =>
             {
                 var loader = new RecordingMusicLoader(new RecordingMusicPlayback());
@@ -254,6 +290,48 @@ internal static class AudioTests
                 {
                     File.Delete(path);
                 }
+            });
+            yield return new TestCase("music waits for audio initialization without blocking startup", () =>
+            {
+                var path = Path.Combine(AppContext.BaseDirectory, "managed-music-deferred.wav");
+                File.WriteAllBytes(path, CreatePcmWav([0, 0], sampleRate: 44100, channels: 1));
+                try
+                {
+                    var initialization = new StubAudioInitialization(AudioInitializationState.Pending);
+                    var playback = new RecordingMusicPlayback();
+                    var loader = new RecordingMusicLoader(playback);
+                    var player = new MusicPlayer(loader, _ => path, initialization);
+
+                    player.Start();
+                    player.Update();
+                    Assert(loader.LoadCount == 0, "pending initialization does not load music on the game thread");
+
+                    initialization.State = AudioInitializationState.Ready;
+                    player.Update();
+                    player.Update();
+                    Assert(loader.LoadCount == 1, "music loads once after initialization succeeds");
+                    Assert(playback.PlayCount == 1, "music plays once after initialization succeeds");
+                }
+                finally
+                {
+                    File.Delete(path);
+                }
+            });
+            yield return new TestCase("music stays disabled after audio initialization fails", () =>
+            {
+                var initialization = new StubAudioInitialization(AudioInitializationState.Pending);
+                var loader = new RecordingMusicLoader(new RecordingMusicPlayback());
+                var player = new MusicPlayer(loader, _ => "unused.wav", initialization);
+
+                player.Start();
+                initialization.State = AudioInitializationState.Failed;
+                player.Update();
+                initialization.State = AudioInitializationState.Ready;
+                player.Update();
+
+                Assert(loader.LoadCount == 0, "failed initialization prevents current and later music loads");
+                Assert(ReadRuntimeLog().Contains("background music disabled because audio device initialization failed"),
+                    "music records why it selected silence");
             });
         }
     }

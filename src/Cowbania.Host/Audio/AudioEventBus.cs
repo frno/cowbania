@@ -31,19 +31,26 @@ internal sealed class AudioEventBus
     private readonly HashSet<AudioEvent> disabledEvents = [];
     private readonly IAudioEffectLoader loader;
     private readonly Func<string, string> pathResolver;
+    private readonly IAudioInitialization? audioInitialization;
     private bool initialized;
 
-    public AudioEventBus() : this(null) { }
+    public AudioEventBus() : this(initialEffects: null) { }
+
+    public AudioEventBus(IAudioInitialization audioInitialization) : this(
+        null,
+        audioInitialization: audioInitialization) { }
 
     internal AudioEventBus(
         IReadOnlyDictionary<AudioEvent, IAudioPlayback>? initialEffects,
         IAudioEffectLoader? effectLoader = null,
         Func<string, string>? pathResolver = null,
-        bool initialized = false)
+        bool initialized = false,
+        IAudioInitialization? audioInitialization = null)
     {
         effects = initialEffects is null ? [] : new Dictionary<AudioEvent, IAudioPlayback>(initialEffects);
         loader = effectLoader ?? new ManagedWavEffectLoader();
         this.pathResolver = pathResolver ?? ResolvePath;
+        this.audioInitialization = audioInitialization;
         this.initialized = initialized;
     }
 
@@ -58,6 +65,16 @@ internal sealed class AudioEventBus
     public void Play(AudioEvent audioEvent)
     {
         RuntimeLog.Info($"audio playback request event={audioEvent} loaded={effects.ContainsKey(audioEvent)} disabled={disabledEvents.Contains(audioEvent)}");
+        if (audioInitialization?.State is AudioInitializationState.NotStarted or AudioInitializationState.Pending)
+        {
+            RuntimeLog.Info($"audio playback deferred event={audioEvent} reason=device-initialization-pending fallback=silence");
+            return;
+        }
+        if (audioInitialization?.State == AudioInitializationState.Failed)
+        {
+            Disable(audioEvent, "device-initialization");
+            return;
+        }
         if (disabledEvents.Contains(audioEvent))
         {
             RuntimeLog.Warn($"audio playback suppressed event={audioEvent} reason=disabled fallback=silence");

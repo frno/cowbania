@@ -15,8 +15,9 @@ internal sealed class CowbaniaGame : Game
     private readonly GraphicsDeviceManager graphics;
     private readonly GameWorld world = new();
     private readonly PresentationTimeline timeline = new();
-    private readonly AudioEventBus audioBus = new();
-    private readonly MusicPlayer musicPlayer = new();
+    private readonly AudioInitialization audioInitialization = new();
+    private readonly AudioEventBus audioBus;
+    private readonly MusicPlayer musicPlayer;
     private readonly FrameTelemetry telemetry = new();
     private GameUpdateCoordinator updateCoordinator = null!;
     private FrontierAssets assets = null!;
@@ -25,6 +26,8 @@ internal sealed class CowbaniaGame : Game
     public CowbaniaGame()
     {
         StartupDiagnostics.Mark("CowbaniaGame constructor start");
+        audioBus = new AudioEventBus(audioInitialization);
+        musicPlayer = new MusicPlayer(audioInitialization);
         graphics = new GraphicsDeviceManager(this)
         {
             PreferredBackBufferWidth = 1024,
@@ -50,6 +53,7 @@ internal sealed class CowbaniaGame : Game
         StartupDiagnostics.Mark("SpriteBatch and pixel texture created");
 
         assets = FrontierAssetLoader.Load(GraphicsDevice);
+        audioInitialization.Start();
         audioBus.Load(GraphicsDevice);
         musicPlayer.Start();
         timeline.Initialize(world);
@@ -75,6 +79,7 @@ internal sealed class CowbaniaGame : Game
         if (telemetry.MarkFirstUpdate())
             StartupDiagnostics.Mark("first Update");
 
+        musicPlayer.Update();
         updateCoordinator.Update((float)gameTime.ElapsedGameTime.TotalSeconds);
         base.Update(gameTime);
         telemetry.EndUpdate(measurement, gameTime, world);

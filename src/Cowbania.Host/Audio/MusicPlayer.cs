@@ -15,18 +15,55 @@ internal sealed class MusicPlayer
 
     private readonly IMusicLoader loader;
     private readonly Func<string, string> pathResolver;
+    private readonly IAudioInitialization? audioInitialization;
     private IMusicPlayback? playback;
     private bool disabled;
+    private bool startRequested;
 
     public MusicPlayer() : this(new ManagedWavMusicLoader(), ResolvePath) { }
 
-    internal MusicPlayer(IMusicLoader loader, Func<string, string> pathResolver)
+    public MusicPlayer(IAudioInitialization audioInitialization) : this(
+        new ManagedWavMusicLoader(),
+        ResolvePath,
+        audioInitialization) { }
+
+    internal MusicPlayer(
+        IMusicLoader loader,
+        Func<string, string> pathResolver,
+        IAudioInitialization? audioInitialization = null)
     {
         this.loader = loader;
         this.pathResolver = pathResolver;
+        this.audioInitialization = audioInitialization;
     }
 
     public void Start()
+    {
+        startRequested = true;
+        if (audioInitialization is not null)
+        {
+            RuntimeLog.Info("background music requested; waiting for audio device initialization");
+            return;
+        }
+        TryStart();
+    }
+
+    public void Update()
+    {
+        if (!startRequested || disabled || playback is not null || audioInitialization is null)
+            return;
+        if (audioInitialization.State is AudioInitializationState.NotStarted or AudioInitializationState.Pending)
+            return;
+        if (audioInitialization.State == AudioInitializationState.Failed)
+        {
+            RuntimeLog.Warn("background music disabled because audio device initialization failed");
+            disabled = true;
+            return;
+        }
+        TryStart();
+    }
+
+    private void TryStart()
     {
         if (disabled || playback is not null) return;
 
