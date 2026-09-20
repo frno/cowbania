@@ -18,12 +18,12 @@ internal static class FrontierAssetLoader
 {
     public static FrontierAssets Load(GraphicsDevice graphicsDevice)
     {
-        var player = LoadActors(graphicsDevice, "Player", FrontierAnimationCatalog.PlayerClips.Values);
+        var player = LoadActors(graphicsDevice, "Player", 32, 32, FrontierAnimationCatalog.PlayerClips.Values);
         StartupDiagnostics.Mark($"player sprites loaded ({player.Count})");
-        var bandit = LoadActors(graphicsDevice, "Bandit", FrontierAnimationCatalog.BanditClips.Values);
-        var wildlife = LoadActors(graphicsDevice, "Wildlife", FrontierAnimationCatalog.WildlifeClips.Values);
+        var bandit = LoadActors(graphicsDevice, "Bandit", 16, 16, FrontierAnimationCatalog.BanditClips.Values);
+        var wildlife = LoadActors(graphicsDevice, "Wildlife", 16, 16, FrontierAnimationCatalog.WildlifeClips.Values);
         StartupDiagnostics.Mark($"enemy sprites loaded (bandit={bandit.Count}, wildlife={wildlife.Count})");
-        var pickup = LoadActors(graphicsDevice, "Pickup", FrontierAnimationCatalog.PickupClips.Values);
+        var pickup = LoadActors(graphicsDevice, "Pickup", 16, 16, FrontierAnimationCatalog.PickupClips.Values);
         StartupDiagnostics.Mark($"pickup sprites loaded ({pickup.Count})");
 
         var terrain = LoadNamed(graphicsDevice, "Terrain", 16, 16,
@@ -50,11 +50,13 @@ internal static class FrontierAssetLoader
     private static Dictionary<string, Texture2D> LoadActors(
         GraphicsDevice graphicsDevice,
         string category,
+        int width,
+        int height,
         IEnumerable<AnimationClip> clips)
     {
         var cache = new Dictionary<string, Texture2D>(StringComparer.Ordinal);
         foreach (var key in clips.SelectMany(clip => clip.Frames).Select(frame => frame.AssetKey).Distinct(StringComparer.Ordinal))
-            cache[key] = LoadSprite(graphicsDevice, key, 16, 16, category);
+            cache[key] = LoadSprite(graphicsDevice, key, width, height, category);
         return cache;
     }
 

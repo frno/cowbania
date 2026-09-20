@@ -51,3 +51,5 @@ Cowbania.Host.startup.log
 # Local secrets (never commit)
 tools/nanogpt/.secret/
 tools/nanogpt/out/
+tools/nanogpt/__pycache__/
+Assets/Art/Frontier/tools/__pycache__/

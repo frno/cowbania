@@ -1,12 +1,17 @@
 # Release 6 Frontier Visual Identity
 
-Original, locally generated pixel art for Cowbania's Dust-Gothic Frontier presentation. Run `python tools\generate_frontier_assets.py` from this directory (or invoke it by absolute path) to reproduce and validate the complete PNG pack.
+Locally generated pixel art for Cowbania's Dust-Gothic Frontier presentation.
+
+- **Player, Bandit, and Wildlife art** is produced by an AI-assisted pipeline (see [Actor art pipeline](#actor-art-pipeline) below). To regenerate:
+  - Player (32x32, 26 frames): `python tools\nanogpt\pixelate_sprite.py`
+  - Enemies (16x16, 24 frames): `python tools\nanogpt\pixelate_enemy.py`
+- **Remaining non-player art (Pickups, Terrain, Props, Effects, UI, Backgrounds)** is still generated procedurally. Run `python tools\generate_frontier_assets.py` from this directory (or invoke it by absolute path) to reproduce and validate those PNGs. The `bandit()` and `wildlife()` functions in that script remain as reference silhouettes but are no longer the shipping source-of-truth.
 
 ## Stable asset contract
 
 | Group | Dimensions | Frames / files |
 |---|---:|---|
-| Player | 16x16 | `idle_0..3`, `run_0..5`, `jump_0..1`, `fall_0..1`, `shoot_0..2`, `reload_0..3`, `hurt_0..1`, `dash_0..2` |
+| Player | 32x32 | `idle_0..3`, `run_0..5`, `jump_0..1`, `fall_0..1`, `shoot_0..2`, `reload_0..3`, `hurt_0..1`, `dash_0..2` |
 | Bandit | 16x16 | `patrol_0..3`, `notice_0..1`, `attack_0..3`, `defeated_0..1` |
 | Wildlife | 16x16 | `patrol_0..3`, `notice_0..1`, `lunge_0..3`, `defeated_0..1` |
 | Pickups | 16x16 | Currency, Health, and Ammo `float_0..3` |
@@ -21,7 +26,9 @@ All PNGs are RGBA with transparent backgrounds. Backgrounds contain only scenery
 
 ## Anchors and rendering
 
-- Player feet anchor: source pixel **(8,13)** in every frame. Rows 14–15 remain transparent, and animation changes do not translate the anchor.
+- Player source canvas: **32x32**. Feet anchor: source pixel **(16,27)**. Rows 28–31 remain transparent, and animation changes do not translate the anchor.
+- Player effect/muzzle anchor: source pixel **(25,15)** — coincides with the revolver muzzle when the arm is extended forward at hip height.
+- Player is rendered at **integer 2x scale** (64x64 on screen). The larger canvas gives Neo-Geo-fighting-game-tier detail (wide-brim hat silhouette, brim-shadowed eyes, mustache, kerchief, poncho, belt buckle, boots with spurs) while the 24x48 world collision body is decoupled from sprite size in the standard platformer fashion.
 - Bandit and wildlife frames share a stable bottom-aligned 16x16 source box.
 - Render at integer scale with nearest-neighbor / `PointClamp`; do not filter, antialias, or resample.
 - Props use bottom-center placement unless room metadata specifies another origin.
@@ -53,6 +60,54 @@ Lighting is upper-left. Foreground silhouettes use the dark plum outline and war
 - Decorative props and background silhouettes deliberately avoid long bright horizontal rims. Crates, signs, mine timber, and wagon remains use broken crowns, muted contrast, irregular silhouettes, and ground-integrated debris shapes so they cannot be mistaken for reachable platforms or active interactables.
 - Backgrounds are lower saturation and contrast than actors, pickups, hazards, and terrain.
 - Bandits are upright with hat and firearm; wildlife are low, wide, and forward-heavy.
+- The Player silhouette reads as a wide-brim-hatted gunslinger: dark cowboy-hat brim wider than the shoulders, brim-shadowed eye slit with a single warm glint on the visible eye, thick mustache bar, red kerchief, rust poncho with a bone-colored woven stripe and shadowed hem, belt+buckle, blue pants, deep boots with a gold spur accent. Upper-left lighting is enforced by asymmetric brim and poncho highlights so the character cannot be misread as a baseball-capped generic figure.
 - Currency is a diamond token, health is a heart, and ammo is a twin-cartridge box: pickup identity never depends on tint alone.
 - Notice, attack, hurt, dash, defeat, and collection use silhouette, pose, particles, or motion streaks as well as color.
 - Telegraph gold and damage red are accents only; their shapes remain legible in greyscale.
+
+## Actor art pipeline
+
+Player, Bandit, and Wildlife frames are not procedurally drawn. They are produced by a two-stage AI-pipeline that combines AI-generated pose references with a deterministic downscale/quantize step, then dropped into the appropriate `Assets/Art/Frontier/{Player,Bandit,Wildlife}/{state}_{frame}.png` files at the exact stable filenames listed in the [asset contract](#stable-asset-contract) table.
+
+### Player (32×32, 26 frames)
+
+**Stage 1 — AI pose generation** (`tools/nanogpt/generate_image.py`).
+
+- One "hero" idle reference is generated first as a right-facing side-profile character at ~1024x1024 (`tools/nanogpt/out/hero_idle_side.png`). This is the locked style + character anchor.
+- Seven per-state base poses (`hero_run.png`, `hero_jump.png`, `hero_fall.png`, `hero_shoot.png`, `hero_reload.png`, `hero_hurt.png`, `hero_dash.png`) are generated using the hero as `--reference` so hat, coat, bandana, gunbelt, boots, and proportions stay consistent across the sheet.
+- Every base pose is authored as a **right-facing side profile** (the renderer mirrors via `SpriteEffects.FlipHorizontally` for left-facing motion — see `RenderContext.Anchored`). Do not commit front-facing or 3/4 poses.
+
+**Stage 2 — Pixelate** (`tools/nanogpt/pixelate_sprite.py`).
+
+For every source pose the pipeline:
+
+1. Chroma-keys the AI's near-white background to transparent (the NanoGPT image API returns opaque-white backgrounds, not alpha=0).
+2. Trims to the character's bounding box.
+3. Downscales by height to `feet_anchor_y + 1` = 28 rows (premultiplied-alpha LANCZOS, so partially-transparent edges don't fringe blue/purple). Wide poses (run, dash, fall) overflow the 32-pixel canvas width horizontally and clip; that is the intended trade — keeping full readable body height is more valuable than including every strand of trailing coat.
+4. Snaps alpha to strictly `{0, 255}` and quantizes every opaque pixel to the 14-color Frontier palette (nearest-neighbor in RGB). This removes anti-aliased mid-tones and gives the flat pixel-art look that matches the Bandit/Wildlife/prop art already in-repo.
+5. Places the sprite on a 32x32 canvas so the midpoint of the bottom-band opaque pixels lands at feet anchor `(16, 27)`.
+6. Guarantees the feet anchor pixel is opaque; erases any opaque pixels below row 27 (would otherwise clip through the floor).
+
+**Frame derivation.** Only 8 AI calls are spent — one hero idle + one per non-idle state. The four idle frames come from the hero via 1-pixel breathing-bob shifts; the six run frames come from the run base via bob + leg-shift keyframes; the three shoot frames come from the shoot base with an added muzzle-flash stamp at effect anchor `(25, 15)` and a recoil offset on frame 2; reload frames cycle upper-body bobs; dash frames add horizontal speed streaks; hurt/jump/fall frames apply small pose offsets. To upgrade any frame past this derivation quality, drop a per-frame source at `tools/nanogpt/out/hero_{state}_{frame}.png` — the pipeline will prefer it over the derived variant.
+
+**Anchors are unchanged** from the procedural asset contract: source canvas 32x32, feet anchor source pixel `(16, 27)`, effect/muzzle anchor source pixel `(25, 15)`, rendered at integer 2x scale (64x64 on-screen), `SamplerState.PointClamp`, no filtering.
+
+### Bandit and Wildlife enemies (16×16, 24 frames)
+
+Bandit (12 frames) and Wildlife (12 frames) are regenerated by the same NanoGPT client via `tools/nanogpt/generate_enemy_frames.py` (locked prompts, 4 base poses per enemy — patrol/notice/attack-or-lunge/defeated) and pixelated by `tools/nanogpt/pixelate_enemy.py`.
+
+Key deltas from the 32×32 player pipeline (all captured in `.github/skills/nanogpt-sprite-pipeline/SKILL.md` lesson 13):
+
+- 16×16 canvas, feet anchor `(8, 15)`.
+- `TARGET_COLORS = 4` per frame (not 6 — 256 pixels can't support 6 without visible speckle).
+- Contain-fit scaling (`min(canvas_w/w, canvas_h/h)`) instead of the player pipeline's height-first fit, because the wildlife quadruped is horizontal and would overflow width.
+- Whole-sprite bob-cycle patrol animation (no split leg-shift — legs are only 1 pixel wide at this resolution and split-shifting disconnects them).
+- Post-process `_ensure_single_component` pass bridges any remaining torso↔feet gap with a 1-pixel Manhattan bridge in the sprite's dominant color, before intentional accent stamps (notice glyph, muzzle flash, dust puff, lunge streaks) are added.
+- Prompt CHARACTER blocks intentionally push each enemy away from the player silhouette:
+  - Bandit: **low round bowler hat** (not wide-brim), face bandana mask, open dark vest + bandolier, grey-purple pants (not blue jeans), stocky proportions.
+  - Wildlife: coyote/prairie-wolf quadruped, low horizontal body plan, rust/timber fur with bone underbelly, tail out horizontally behind.
+- One AI call per (enemy, state) — 8 calls total for a full regeneration. Per-frame variants derived pixel-side. Drop a `tools/nanogpt/out/hero_{enemy}_{state}_{frame}.png` override if the derivation quality on one frame isn't good enough.
+- Reference chain: `hero_bandit_patrol.png` locks bandit identity, other bandit poses `--reference` off it. Same for wildlife. **Do not cross-chain bandit ↔ wildlife** — that produced hybrid silhouettes in testing.
+
+
+`Assets/Art/Frontier/tools/generate_frontier_assets.py` still owns non-actor art (pickups, terrain, props, effects, UI, backgrounds). Its `player()`, `bandit()`, and `wildlife()` functions are retained as reference silhouettes only and are no longer the shipping source of truth — do not reintroduce them as such.

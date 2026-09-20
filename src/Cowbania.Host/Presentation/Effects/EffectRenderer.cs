@@ -6,6 +6,8 @@ namespace Cowbania.Host.Presentation.Effects;
 
 internal sealed class EffectRenderer(RenderContext context, PresentationTimeline timeline)
 {
+    private const int PlayerScale = 2;
+
     public void DrawPlayer(GameWorld world)
     {
         if (world.IsDashing)
@@ -19,8 +21,8 @@ internal sealed class EffectRenderer(RenderContext context, PresentationTimeline
             return;
         var metadata = FrontierAnimationCatalog.PlayerMetadata;
         var position = world.PlayerPosition + new NumericsVector2(
-            (metadata.SourceEffectAnchor.X - metadata.SourceFeetAnchor.X) * 3 * world.FacingDirection,
-            (metadata.SourceEffectAnchor.Y - metadata.SourceFeetAnchor.Y) * 3);
+            (metadata.SourceEffectAnchor.X - metadata.SourceFeetAnchor.X) * PlayerScale * world.FacingDirection,
+            (metadata.SourceEffectAnchor.Y - metadata.SourceFeetAnchor.Y) * PlayerScale);
         Draw("muzzle", Math.Min(2, (int)((0.14f - timeline.ShootSeconds) * 21)), position, world.FacingDirection, 2);
     }
 

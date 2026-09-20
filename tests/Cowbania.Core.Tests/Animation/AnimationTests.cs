@@ -149,13 +149,13 @@ internal static class AnimationTests
             });
             yield return new TestCase("frontier actor metadata preserves feet and effect anchors", () =>
             {
-                Assert(FrontierAnimationCatalog.PlayerMetadata.SourceFeetAnchor == new Vector2(8, 13),
+                Assert(FrontierAnimationCatalog.PlayerMetadata.SourceFeetAnchor == new Vector2(16, 27),
                                 "player sprites preserve the required source feet anchor");
                             Assert(FrontierAnimationCatalog.BanditMetadata.SourceFeetAnchor == new Vector2(8, 13) &&
                                    FrontierAnimationCatalog.WildlifeMetadata.SourceFeetAnchor == new Vector2(8, 13) &&
                                    FrontierAnimationCatalog.PickupMetadata.SourceFeetAnchor == new Vector2(8, 13),
                                 "all Frontier actors expose the shared source feet anchor");
-                            Assert(FrontierAnimationCatalog.PlayerMetadata.SourceEffectAnchor == new Vector2(13, 7),
+                            Assert(FrontierAnimationCatalog.PlayerMetadata.SourceEffectAnchor == new Vector2(25, 15),
                                 "player metadata exposes the authored source muzzle anchor");
                             Assert(FrontierAnimationCatalog.BanditMetadata.SourceEffectAnchor == new Vector2(14, 7),
                                 "bandit metadata exposes its authored muzzle anchor");

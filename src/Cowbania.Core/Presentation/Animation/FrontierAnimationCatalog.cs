@@ -10,7 +10,7 @@ namespace Cowbania.Core.Presentation.Animation;
 public static class FrontierAnimationCatalog
 {
     public static AnimationActorMetadata PlayerMetadata { get; } =
-        new(new Vector2(8, 13), new Vector2(13, 7));
+        new(new Vector2(16, 27), new Vector2(25, 15));
 
     public static AnimationActorMetadata BanditMetadata { get; } =
         new(new Vector2(8, 13), new Vector2(14, 7));

@@ -32,7 +32,7 @@ import urllib.request
 from pathlib import Path
 
 API_BASE = "https://nano-gpt.com/api/v1"
-DEFAULT_MODEL = "openai/gpt-image-2.5/flare/text-to-image"
+DEFAULT_MODEL = "seedream-v5.0-lite"
 
 # Local, gitignored fallback for environments where the env var doesn't
 # propagate across shells/processes. Never commit this file (see .gitignore).

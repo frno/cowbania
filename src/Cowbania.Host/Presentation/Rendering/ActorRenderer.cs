@@ -10,11 +10,17 @@ internal sealed class ActorRenderer(
     PresentationTimeline timeline,
     EffectRenderer effects)
 {
+    private const int PlayerScale = 2;
+    private const int ActorScale = 3;
+    private const int PickupScale = 2;
+
     public void DrawPlayer(GameWorld world)
     {
         DrawActor(
             context.Assets.Player[timeline.PlayerFrame().AssetKey],
             world.PlayerPosition,
+            FrontierAnimationCatalog.PlayerMetadata,
+            PlayerScale,
             world.FacingDirection);
         effects.DrawPlayer(world);
     }
@@ -29,8 +35,11 @@ internal sealed class ActorRenderer(
             var cache = enemy.Archetype == EnemyArchetype.Bandit
                 ? context.Assets.Bandit
                 : context.Assets.Wildlife;
+            var metadata = enemy.Archetype == EnemyArchetype.Bandit
+                ? FrontierAnimationCatalog.BanditMetadata
+                : FrontierAnimationCatalog.WildlifeMetadata;
             var frame = Math.Clamp(timeline.EnemyFrame(enemy.Id), 0, clip.Frames.Length - 1);
-            DrawActor(cache[clip.Frames[frame].AssetKey], enemy.Position, presentation.FacingDirection);
+            DrawActor(cache[clip.Frames[frame].AssetKey], enemy.Position, metadata, ActorScale, presentation.FacingDirection);
             effects.DrawEnemy(enemy, presentation);
         }
     }
@@ -43,13 +52,18 @@ internal sealed class ActorRenderer(
                 context.Assets.Pickup[timeline.PickupFrame(pickup.Type).AssetKey],
                 pickup.Position,
                 FrontierAnimationCatalog.PickupMetadata.SourceFeetAnchor,
-                2);
+                PickupScale);
         }
         effects.DrawPickup();
     }
 
-    private void DrawActor(Texture2D texture, NumericsVector2 position, int facing) =>
-        context.Anchored(texture, position, FrontierAnimationCatalog.PlayerMetadata.SourceFeetAnchor, 3, facing);
+    private void DrawActor(
+        Texture2D texture,
+        NumericsVector2 position,
+        AnimationActorMetadata metadata,
+        int scale,
+        int facing) =>
+        context.Anchored(texture, position, metadata.SourceFeetAnchor, scale, facing);
 
     private void DrawTelegraph(EnemyState enemy, EnemyPresentationDefinition presentation)
     {

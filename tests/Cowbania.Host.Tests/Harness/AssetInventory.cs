@@ -31,6 +31,8 @@ internal static class AssetInventory
     {
         if (asset.StartsWith("Frontier/Background/", StringComparison.Ordinal))
             return (256, 144);
+        if (asset.StartsWith("Frontier/Player/", StringComparison.Ordinal))
+            return (32, 32);
         if (new[] { "checkpoint.png", "shortcut.png", "transition_gate.png", "wagon_debris.png", "mine_timber.png" }
             .Any(name => asset.EndsWith($"/{name}", StringComparison.Ordinal)))
             return (32, 32);

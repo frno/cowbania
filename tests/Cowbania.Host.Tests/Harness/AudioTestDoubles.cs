@@ -59,3 +59,38 @@ internal sealed class ThrowingLoader : IAudioEffectLoader
         throw new InvalidDataException("test managed decode failure");
     }
 }
+
+internal sealed class RecordingMusicPlayback : IMusicPlayback
+{
+    public int PlayCount { get; private set; }
+    public int StopCount { get; private set; }
+    public float LastVolume { get; private set; }
+
+    public void Play(float volume)
+    {
+        PlayCount++;
+        LastVolume = volume;
+    }
+
+    public void Stop() => StopCount++;
+}
+
+internal sealed class RecordingMusicLoader(IMusicPlayback playback) : IMusicLoader
+{
+    public int LoadCount { get; private set; }
+    public IMusicPlayback Load(string path)
+    {
+        LoadCount++;
+        return playback;
+    }
+}
+
+internal sealed class ThrowingMusicLoader : IMusicLoader
+{
+    public int LoadCount { get; private set; }
+    public IMusicPlayback Load(string path)
+    {
+        LoadCount++;
+        throw new InvalidDataException("test managed music decode failure");
+    }
+}

@@ -16,6 +16,7 @@ internal sealed class CowbaniaGame : Game
     private readonly GameWorld world = new();
     private readonly PresentationTimeline timeline = new();
     private readonly AudioEventBus audioBus = new();
+    private readonly MusicPlayer musicPlayer = new();
     private readonly FrameTelemetry telemetry = new();
     private GameUpdateCoordinator updateCoordinator = null!;
     private FrontierAssets assets = null!;
@@ -50,6 +51,7 @@ internal sealed class CowbaniaGame : Game
 
         assets = FrontierAssetLoader.Load(GraphicsDevice);
         audioBus.Load(GraphicsDevice);
+        musicPlayer.Start();
         timeline.Initialize(world);
         updateCoordinator = new GameUpdateCoordinator(
             world,
