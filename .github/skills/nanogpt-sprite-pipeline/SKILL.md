@@ -273,50 +273,6 @@ captures what broke and what worked during the first end-to-end run (player spri
       `CHARACTER` block (silhouette / body plan / palette accents to keep enemies distinct
       from the player and from each other).
 
-14. **Parallax background layers are their own pipeline profile.** See
-    `tools/nanogpt/pixelate_background.py`. Backgrounds are 256×144 RGBA silhouette bands
-    that tile horizontally in `StageRenderer.DrawBackgroundBand`. Lessons:
-
-    - **Do not try to hit a shared palette from the AI directly for backgrounds.** Ask for
-      "two solid colors, sky + silhouette" in the prompt, but classify the actual source
-      pixels by **RGB distance to a SAMPLED sky color** (majority color of the top strip
-      of the source), not to the target Frontier hex. AIs render silhouette-band bgs with
-      slightly-off sky hues per generation, so a fixed target-hex classifier over- or
-      under-shoots depending on the run. Threshold radius `~30 RGB units` is a good
-      middle ground: keeps sky-tone variance, excludes even darker "distant feature"
-      pixels (see next).
-    - **AI silhouette-band prompts often produce THREE tones, not two.** Distant buildings,
-      pine tops, or telegraph poles frequently come out as a THIRD color that's darker
-      than both sky and the intended silhouette color (the AI's own instinct for "far
-      = darker"). A distance-to-sil classifier would drop them into the sky bucket; a
-      distance-from-sky threshold correctly lumps them all into the silhouette bucket.
-    - **Classify at source resolution, downscale with "any-silhouette-wins" per patch.**
-      Naïve LANCZOS-then-classify or classify-then-mode-downscale both erase narrow
-      features (telegraph poles are ~2 source pixels wide → majority-vote loses to
-      surrounding sky). Instead: classify every source pixel, then for each 256×144
-      output cell, set silhouette if ANY source pixel in its patch was classified as
-      silhouette. Backgrounds don't need pristine flat edges — a slightly rougher
-      silhouette top reads fine on a receding parallax layer.
-    - **Seam-repair for horizontal wrap.** The game wraps by texture width, so the
-      right edge must visually meet the left edge. Compute a per-column height map of
-      the silhouette (topmost opaque row per column), then linearly interpolate
-      symmetric column pairs toward their midpoint using weight `(1 - i/N)` where `i`
-      is distance-from-seam and `N` is the blend zone (~32 columns). Rebuild the
-      silhouette from the blended heights. This is cheap because silhouettes are
-      ground-anchored: only the top edge needs blending. Validation must assert
-      `heights[0] == heights[-1]` after the pass.
-    - **Backgrounds must RECEDE — they are the flip side of lesson 12's readability
-      rule.** Enforce very limited palette (2 colors per layer, sky + silhouette),
-      low saturation, no interior detail. Palette assignments used here:
-        - far layers: sky = `distance_violet 0x504865`, silhouette = `blue_grey 0x536778`
-        - mid layers: sky = `dusk_plum 0x392326`, silhouette = `dusk_plum_hi 0x644c5b`
-      Composite-test every new bg with actual finalized actor sprites on top BEFORE
-      accepting — the actor palette was tuned against the previous bgs and any bg
-      palette shift risks new collisions.
-    - **Prompt must explicitly reject sky detail.** No sun, no moon, no stars, no
-      clouds, no birds, no atmospheric haze — anything the AI adds to the sky ruins
-      the pure-transparent-sky contract and confuses the RGB-distance classifier.
-
 ## Workflow
 
 1. Generate ONE locked reference pose (the most neutral/idle pose, right-facing, isolated,
