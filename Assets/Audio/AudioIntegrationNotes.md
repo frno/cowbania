@@ -30,3 +30,16 @@ one scene-level object with an `AudioEventBus` component (which requires an
 The bus owns playback; other systems may subscribe to
 `AudioEventBus.EventRaised` when they need telemetry, UI feedback, or an
 alternate mixer route.
+
+## Background music
+
+`Music_Background.wav` is a looping background track, played independently
+of the SFX above by `Cowbania.Host.Audio.MusicPlayer` (started once from
+`CowbaniaGame.LoadContent`, not routed through `AudioEventBus`). It must be
+pre-processed for seamless looping before being dropped in this folder --
+MonoGame's `SoundEffectInstance.IsLooped` just seeks back to sample 0 the
+instant playback reaches the end, so any leftover discontinuity between the
+last and first sample is an audible click on every loop. Use
+`tools/nanogpt/loop_music.py <in.wav> <out.wav> --crossfade 0.15` to smooth
+the seam (see `.github/skills/nanogpt-audio-pipeline/SKILL.md` for the
+generation + looping pipeline and lessons learned).

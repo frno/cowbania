@@ -137,6 +137,85 @@ internal static class AudioTests
                     File.Delete(path);
                 }
             });
+            yield return new TestCase("music start is a no-op when the file is missing", () =>
+            {
+                var loader = new RecordingMusicLoader(new RecordingMusicPlayback());
+                var player = new MusicPlayer(loader, _ => Path.Combine(AppContext.BaseDirectory, "no-such-music.wav"));
+
+                player.Start();
+
+                Assert(loader.LoadCount == 0, "a missing music file is never handed to the loader");
+                var log = ReadRuntimeLog();
+                Assert(log.Contains("background music missing path="), "missing music path is logged");
+            });
+            yield return new TestCase("music start loads and plays once, ignoring later starts", () =>
+            {
+                var path = Path.Combine(AppContext.BaseDirectory, "managed-music-success.wav");
+                File.WriteAllBytes(path, CreatePcmWav([0, 0], sampleRate: 44100, channels: 1));
+                try
+                {
+                    var playback = new RecordingMusicPlayback();
+                    var loader = new RecordingMusicLoader(playback);
+                    var player = new MusicPlayer(loader, _ => path);
+
+                    player.Start();
+                    player.Start();
+
+                    Assert(loader.LoadCount == 1, "background music loads only once");
+                    Assert(playback.PlayCount == 1, "background music plays only once across repeated starts");
+                    Assert(playback.LastVolume > 0f, "background music plays at an audible volume");
+                    var log = ReadRuntimeLog();
+                    Assert(log.Contains("background music load begin path="), "music load begin is logged");
+                    Assert(log.Contains("background music playback started"), "music playback start is logged");
+                }
+                finally
+                {
+                    File.Delete(path);
+                }
+            });
+            yield return new TestCase("music decode failure disables playback without throwing", () =>
+            {
+                var path = Path.Combine(AppContext.BaseDirectory, "managed-music-failure.wav");
+                File.WriteAllBytes(path, "invalid"u8.ToArray());
+                try
+                {
+                    var loader = new ThrowingMusicLoader();
+                    var player = new MusicPlayer(loader, _ => path);
+
+                    player.Start();
+                    player.Start();
+
+                    Assert(loader.LoadCount == 1, "a failed music decode is never retried");
+                    var log = ReadRuntimeLog();
+                    Assert(log.Contains("background music load/playback failure"), "music failure is logged");
+                }
+                finally
+                {
+                    File.Delete(path);
+                }
+            });
+            yield return new TestCase("music stop is safe before start and forwards to playback after start", () =>
+            {
+                var path = Path.Combine(AppContext.BaseDirectory, "managed-music-stop.wav");
+                File.WriteAllBytes(path, CreatePcmWav([0, 0], sampleRate: 44100, channels: 1));
+                try
+                {
+                    var playback = new RecordingMusicPlayback();
+                    var loader = new RecordingMusicLoader(playback);
+                    var player = new MusicPlayer(loader, _ => path);
+
+                    player.Stop();
+                    Assert(playback.StopCount == 0, "stop before start does not touch an unstarted playback");
+
+                    player.Start();
+                    player.Stop();
+                    Assert(playback.StopCount == 1, "stop after start forwards to the underlying playback");
+                }
+                finally
+                {
+                    File.Delete(path);
+                }
+            });
         }
     }
 }
