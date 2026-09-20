@@ -239,3 +239,19 @@
 **Why:**
 - The previous monolithic files mixed simulation, presentation, rendering, audio, diagnostics, and tests, making feature ownership and dependency direction unclear.
 - Feature namespaces make related behavior discoverable while preserving deterministic gameplay and the lightweight dependency-free architecture.
+
+
+### 2026-09-19: Set revolver reload to four firing cadences
+**By:** gameplay-systems
+**What:** The authoritative revolver reload duration is 0.56 seconds, and an accepted shot that empties the six-round cylinder starts reload immediately.
+**Why:** Four 0.14-second firing cadences cuts the previous 1.15-second delay by more than half while preserving a readable, exactly synchronized four-frame reload animation.
+
+### 2026-09-20: Extend enemy contracts for armadillo and snake hazards
+**By:** gameplay-systems
+**What:** Added `DynamiteArmadillo` and `SidewinderSnake` enemy archetypes to the deterministic core, plus the `Hidden` behavior state and timing/constants needed for their state machines and projectile/contact rules.
+**Why:** Presentation and host work now have stable deterministic snapshots and contracts for the new hazard types without depending on rendering, audio, or non-deterministic side effects.
+
+### 2026-09-20: Frontier armadillo and snake presentation wiring
+**By:** monogame-runtime
+**What:** Wired `DynamiteArmadillo` and `SidewinderSnake` through the Frontier presentation stack with dedicated animation clips, asset caches, and renderer metadata. Hidden snakes intentionally render their authored `hidden_*` mound sprites instead of disappearing, and both new enemies were placed on existing raised platforms (`Hub` armadillo, `Branch` snake) so they are reachable in-game without disturbing ground-lane encounter tests.
+**Why:** This keeps the Host aligned with the new Core enemy API and the authored Frontier sprite contract while preserving deterministic tests and existing Bandit/Wildlife behavior.
