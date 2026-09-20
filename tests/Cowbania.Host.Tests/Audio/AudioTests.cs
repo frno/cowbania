@@ -57,6 +57,45 @@ internal static class AudioTests
                                 "jump audio preserves its authored mono layout");
                             Assert(wav.PcmData.Length > 0, "jump audio contains PCM samples");
             });
+            yield return new TestCase("armadillo blocked-shot feedback routes to valid armor audio", () =>
+            {
+                var armorPath = Path.Combine(FindRepositoryRoot(), "Assets", "Audio", "SFX_ArmorRicochet.wav");
+                var wav = ManagedPcmWav.Read(File.ReadAllBytes(armorPath));
+                Assert(wav.SampleRate == 44100, "armor ricochet audio preserves its authored sample rate");
+                Assert(wav.Channels == Microsoft.Xna.Framework.Audio.AudioChannels.Mono,
+                    "armor ricochet audio preserves its authored mono layout");
+                Assert(wav.PcmData.Length > 0, "armor ricochet audio contains PCM samples");
+
+                var playback = new RecordingPlayback();
+                var audio = new AudioEventBus(new Dictionary<AudioEvent, IAudioPlayback>
+                {
+                    [AudioEvent.ArmorRicochet] = playback
+                });
+                var world = new GameWorld();
+                var state = typeof(GameWorld).GetField(
+                    "state",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.GetValue(world)!;
+                state.GetType().GetField(
+                    "ArmadilloShotBlockedThisUpdate",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.SetValue(state, true);
+                var signals = new FrameFeedbackSnapshot(
+                    default,
+                    world.Health,
+                    world.CollectedPickupCount,
+                    world.IsReloading,
+                    world.IsPaused,
+                    world.Room,
+                    world.ObjectivePhase,
+                    world.CheckpointRoom,
+                    world.CheckpointPosition,
+                    world.Enemies,
+                    world.Projectiles);
+
+                new AudioFeedbackRouter(audio).Route(signals, world, 1);
+
+                Assert(playback.PlayCount == 1,
+                    "a blocked armadillo shot dispatches the distinctive armor ricochet once");
+            });
             yield return new TestCase("managed WAV decoding rejects invalid input", () =>
             {
                 var exception = AssertThrows<InvalidDataException>(

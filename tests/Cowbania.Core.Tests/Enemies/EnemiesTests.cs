@@ -255,7 +255,7 @@ internal static class EnemiesTests
                             Assert(game.Enemy.FacingDirection == -1,
                                 "the blocked roll flips facing for the next patrol leg");
             });
-            yield return new TestCase("dynamite armadillo ignores bullets and only harms during roll", () =>
+            yield return new TestCase("dynamite armadillo consumes blocked bullets and only harms during roll", () =>
             {
                 var game = new GameWorld();
                             SetCurrentRoomEnemies(game, new EnemyDefinition(
@@ -271,10 +271,16 @@ internal static class EnemiesTests
 
                             var startingHealth = game.Enemy.Health;
                             game.Update(default, 0f);
-                            Assert(game.Projectiles.Count == 1 && game.Projectiles[0] == immuneHit,
-                                "player bullets pass through the armadillo without being consumed");
+                            Assert(game.Projectiles.Count == 0,
+                                "the armadillo shell consumes the player bullet on impact");
                             Assert(game.Enemy.Health == startingHealth && game.Enemy.Alive,
                                 "armadillo overlaps do not deal projectile damage");
+                            Assert(game.ArmadilloShotBlockedThisUpdate,
+                                "the blocked impact exposes one-frame presentation feedback");
+
+                            game.Update(default, 0f);
+                            Assert(!game.ArmadilloShotBlockedThisUpdate,
+                                "the blocked-impact feedback resets on the next update");
 
                             SetProperty(game, nameof(GameWorld.PlayerPosition), game.Enemy.Position);
                             SetProperty(game, nameof(GameWorld.Health), GameWorld.MaximumHealth);

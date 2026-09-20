@@ -18,7 +18,8 @@ during the first end-to-end SFX replacement run.
 - `tools/nanogpt/generate_sfx.py` — stdlib-only client. Submits jobs to NanoGPT's
   `/v1/audio/speech` endpoint with model `elevenlabs/sound-effects/v2`, polls for completion,
   downloads the MP3, converts to PCM WAV via ffmpeg, then trims silence in Python.
-  `--all` regenerates all 6 SFX (`Shooting`, `Reload`, `Pickup`, `Jump`, `Dash`, `Damage`);
+  `--all` regenerates all 7 SFX (`Shooting`, `Reload`, `Pickup`, `Jump`, `Dash`, `Damage`,
+  `ArmorRicochet`);
   `--name <X>` regenerates one. Prompts and per-sound `MAX_DURATION_OVERRIDES` are locked in
   the script for reproducibility.
 - Requires ffmpeg. `_find_ffmpeg()` checks PATH, an explicit `--ffmpeg` arg, then falls back to

@@ -112,6 +112,11 @@ public sealed class GameWorld
         get => state.PlayerShotAcceptedThisUpdate;
         private set => state.PlayerShotAcceptedThisUpdate = value;
     }
+    public bool ArmadilloShotBlockedThisUpdate
+    {
+        get => state.ArmadilloShotBlockedThisUpdate;
+        private set => state.ArmadilloShotBlockedThisUpdate = value;
+    }
     public bool IsReloading => state.ReloadTimer > 0;
     public bool IsDashing => state.DashTimer > 0;
     public bool IsGrounded => PlayerSystem.IsGrounded(state);
@@ -162,6 +167,7 @@ public sealed class GameWorld
     public void Update(InputFrame input, float elapsedSeconds)
     {
         state.PlayerShotAcceptedThisUpdate = false;
+        state.ArmadilloShotBlockedThisUpdate = false;
         state.LastJumpRequestOutcome = JumpRequestOutcome.None;
         if (!state.Completed && input.PausePressed) state.IsPaused = !state.IsPaused;
         if (state.IsPaused)

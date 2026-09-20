@@ -30,6 +30,7 @@ internal sealed class GameWorldState
     internal int SelectedWeaponSlot = 1;
     internal JumpRequestOutcome LastJumpRequestOutcome;
     internal bool PlayerShotAcceptedThisUpdate;
+    internal bool ArmadilloShotBlockedThisUpdate;
     internal bool IsPaused;
     internal bool ShortcutUnlocked;
     internal bool Completed;

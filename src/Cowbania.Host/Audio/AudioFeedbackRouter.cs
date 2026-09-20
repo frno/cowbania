@@ -15,6 +15,7 @@ internal sealed class AudioFeedbackRouter(AudioEventBus audioBus)
         if (signals.Input.DashPressed && world.IsDashing) audioBus.Play(AudioEvent.Dash);
         if (!signals.PreviousReloading && world.IsReloading) audioBus.Play(AudioEvent.Reload);
         if (world.PlayerShotAcceptedThisUpdate) audioBus.Play(AudioEvent.Shooting);
+        if (world.ArmadilloShotBlockedThisUpdate) audioBus.Play(AudioEvent.ArmorRicochet);
         if (world.Health < signals.PreviousHealth) audioBus.Play(AudioEvent.Damage);
         if (world.CollectedPickupCount > signals.PreviousPickupCount) audioBus.Play(AudioEvent.Pickup);
         if (StartedAttack(signals.PreviousEnemies, world.Enemies, EnemyArchetype.Bandit))

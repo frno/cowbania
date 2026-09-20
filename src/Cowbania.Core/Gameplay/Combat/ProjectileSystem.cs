@@ -20,11 +20,21 @@ internal static class ProjectileSystem
                 foreach (var enemy in state.CurrentEnemies)
                 {
                     if (!enemy.Alive ||
-                        Vector2.Distance(projectile.Position, enemy.Position) >= 30 ||
-                        !CanBeHitByPlayerProjectile(enemy))
+                        Vector2.Distance(projectile.Position, enemy.Position) >= 30)
                     {
                         continue;
                     }
+
+                    if (enemy.Definition.Archetype == EnemyArchetype.DynamiteArmadillo)
+                    {
+                        state.ArmadilloShotBlockedThisUpdate = true;
+                        state.Projectiles.RemoveAt(i);
+                        consumed = true;
+                        break;
+                    }
+
+                    if (!CanBeHitByPlayerProjectile(enemy))
+                        continue;
 
                     enemy.Damage(projectile.Damage);
                     state.Projectiles.RemoveAt(i);

@@ -11,6 +11,7 @@ internal static class TestInventory
         "audio playback exception logs an event-only failure boundary",
         "managed WAV decoding accepts PCM without native file decoding",
         "bundled jump audio is valid managed PCM",
+        "armadillo blocked-shot feedback routes to valid armor audio",
         "managed WAV decoding rejects invalid input",
         "successful audio load is cached and played",
         "unsuccessful playback disables retries and falls back to silence",

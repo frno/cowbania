@@ -47,7 +47,7 @@ STATUS_MODEL_ALIASES = {
 
 _SECRET_FILE = Path(__file__).resolve().parent / ".secret" / "api_key.txt"
 
-# Locked prompt set matching the existing 6 placeholder SFX filenames.
+# Locked prompt set matching the runtime SFX filenames.
 # Kept short/specific per lesson: describe transient shape + explicitly
 # exclude music/reverb/voice so the model returns a clean, game-usable hit
 # rather than a musical sting.
@@ -77,6 +77,11 @@ SFX_PROMPTS: dict[str, str] = {
         "a short dull impact thud with a pained grunt, no words, no music, "
         "dry close-up foley"
     ),
+    "ArmorRicochet": (
+        "loud cartoon metal shield clang, one hard impact followed by a short bright "
+        "ricochet ring, punchy arcade game sound, immediate full volume, dry and clean, "
+        "no silence, no ambience, no music, no voice"
+    ),
 }
 
 # Target format matching the existing placeholder WAV files exactly.
@@ -94,6 +99,7 @@ MAX_DURATION_OVERRIDES: dict[str, float] = {
     "Shooting": 1.0,
     "Reload": 1.1,
     "Damage": 0.8,
+    "ArmorRicochet": 0.45,
 }
 
 
@@ -331,7 +337,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--list-models", action="store_true", help="List available audio models and exit.")
     parser.add_argument("--name", choices=sorted(SFX_PROMPTS), help="Generate a single named SFX.")
-    parser.add_argument("--all", action="store_true", help="Generate all 6 SFX.")
+    parser.add_argument("--all", action="store_true", help="Generate all 7 SFX.")
     parser.add_argument("--model", default=DEFAULT_MODEL, help=f"Audio model ID (default: {DEFAULT_MODEL}).")
     parser.add_argument("--out-dir", type=Path, default=Path("out/sfx"), help="Output directory for generated WAVs.")
     parser.add_argument("--ffmpeg", default=None, help="Explicit path to ffmpeg.exe if not on PATH.")

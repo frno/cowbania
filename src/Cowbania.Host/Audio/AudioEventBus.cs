@@ -13,7 +13,8 @@ internal sealed class AudioEventBus
         [AudioEvent.Jump] = "SFX_Jump.wav",
         [AudioEvent.Dash] = "SFX_Dash.wav",
         [AudioEvent.Pickup] = "SFX_Pickup.wav",
-        [AudioEvent.Damage] = "SFX_Damage.wav"
+        [AudioEvent.Damage] = "SFX_Damage.wav",
+        [AudioEvent.ArmorRicochet] = "SFX_ArmorRicochet.wav"
     };
     private static readonly IReadOnlyDictionary<AudioEvent, float> Volumes = new Dictionary<AudioEvent, float>
     {
@@ -22,7 +23,8 @@ internal sealed class AudioEventBus
         [AudioEvent.Jump] = 0.8f,
         [AudioEvent.Dash] = 0.85f,
         [AudioEvent.Pickup] = 0.8f,
-        [AudioEvent.Damage] = 0.8f
+        [AudioEvent.Damage] = 0.8f,
+        [AudioEvent.ArmorRicochet] = 0.9f
     };
 
     private readonly Dictionary<AudioEvent, IAudioPlayback> effects;

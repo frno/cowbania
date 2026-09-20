@@ -7,5 +7,6 @@ internal enum AudioEvent
     Jump,
     Dash,
     Pickup,
-    Damage
+    Damage,
+    ArmorRicochet
 }
