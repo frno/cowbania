@@ -63,11 +63,24 @@ internal static class AssetsTests
                                 .SelectMany(clip => clip.Frames).Select(frame => frame.AssetKey).ToHashSet(StringComparer.Ordinal);
                             var wildlife = FrontierAnimationCatalog.WildlifeClips.Values
                                 .SelectMany(clip => clip.Frames).Select(frame => frame.AssetKey).ToHashSet(StringComparer.Ordinal);
+                            var armadillo = FrontierAnimationCatalog.ArmadilloClips.Values
+                                .SelectMany(clip => clip.Frames).Select(frame => frame.AssetKey).ToHashSet(StringComparer.Ordinal);
+                            var snake = FrontierAnimationCatalog.SnakeClips.Values
+                                .SelectMany(clip => clip.Frames).Select(frame => frame.AssetKey).ToHashSet(StringComparer.Ordinal);
                             Assert(!bandit.Overlaps(wildlife), "bandit and wildlife must not share sprite mappings");
+                            Assert(!bandit.Overlaps(armadillo) && !bandit.Overlaps(snake),
+                                "bandit clips must remain isolated from new enemy archetypes");
+                            Assert(!wildlife.Overlaps(armadillo) && !wildlife.Overlaps(snake),
+                                "wildlife clips must remain isolated from new enemy archetypes");
+                            Assert(!armadillo.Overlaps(snake), "armadillo and snake must not share sprite mappings");
                             Assert(bandit.All(key => key.StartsWith("Frontier/Bandit/", StringComparison.Ordinal)),
                                 "bandit clips must resolve to Bandit art");
                             Assert(wildlife.All(key => key.StartsWith("Frontier/Wildlife/", StringComparison.Ordinal)),
                                 "wildlife clips must resolve to Wildlife art");
+                            Assert(armadillo.All(key => key.StartsWith("Frontier/Armadillo/", StringComparison.Ordinal)),
+                                "armadillo clips must resolve to Armadillo art");
+                            Assert(snake.All(key => key.StartsWith("Frontier/Snake/", StringComparison.Ordinal)),
+                                "snake clips must resolve to Snake art");
 
                             var pickupSets = Enum.GetValues<PickupType>().ToDictionary(
                                 type => type,
@@ -91,6 +104,8 @@ internal static class AssetsTests
                             Assert(assets.Contains("LoadActors(graphicsDevice, \"Player\", 32, 32", StringComparison.Ordinal) &&
                                    assets.Contains("LoadActors(graphicsDevice, \"Bandit\", 16, 16", StringComparison.Ordinal) &&
                                    assets.Contains("LoadActors(graphicsDevice, \"Wildlife\", 16, 16", StringComparison.Ordinal) &&
+                                   assets.Contains("LoadActors(graphicsDevice, \"Armadillo\", 16, 16", StringComparison.Ordinal) &&
+                                   assets.Contains("LoadActors(graphicsDevice, \"Snake\", 16, 16", StringComparison.Ordinal) &&
                                    assets.Contains("LoadActors(graphicsDevice, \"Pickup\", 16, 16", StringComparison.Ordinal),
                                 "Frontier asset loading must enforce 32x32 player sprites while leaving other actor and pickup art at 16x16");
 

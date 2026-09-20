@@ -32,29 +32,50 @@ public static class EnemyPresentationStateSelector
                 PresentationAnimationState.WildlifeNotice,
             EnemyArchetype.Wildlife when enemy.BehaviorState == EnemyBehaviorState.Attack =>
                 PresentationAnimationState.WildlifeLunge,
-            _ => PresentationAnimationState.WildlifePatrol
+            EnemyArchetype.Wildlife => PresentationAnimationState.WildlifePatrol,
+            EnemyArchetype.DynamiteArmadillo when enemy.BehaviorState == EnemyBehaviorState.Notice =>
+                PresentationAnimationState.ArmadilloNotice,
+            EnemyArchetype.DynamiteArmadillo when enemy.BehaviorState == EnemyBehaviorState.Attack =>
+                PresentationAnimationState.ArmadilloRoll,
+            EnemyArchetype.DynamiteArmadillo => PresentationAnimationState.ArmadilloPatrol,
+            EnemyArchetype.SidewinderSnake when enemy.BehaviorState == EnemyBehaviorState.Hidden =>
+                PresentationAnimationState.SnakeHidden,
+            EnemyArchetype.SidewinderSnake when enemy.AttackPhase == EnemyAttackPhase.Telegraph =>
+                PresentationAnimationState.SnakeRise,
+            EnemyArchetype.SidewinderSnake when enemy.AttackPhase == EnemyAttackPhase.Active =>
+                PresentationAnimationState.SnakeExposed,
+            EnemyArchetype.SidewinderSnake when enemy.AttackPhase == EnemyAttackPhase.Recovery =>
+                PresentationAnimationState.SnakeRetreat,
+            _ => PresentationAnimationState.SnakeHidden
         };
 
-        var telegraphMarker = enemy.AttackPhase switch
+        var telegraphMarker = (enemy.Archetype, enemy.AttackPhase, enemy.BehaviorState) switch
         {
-            EnemyAttackPhase.Telegraph when enemy.Archetype == EnemyArchetype.Bandit =>
+            (EnemyArchetype.Bandit, EnemyAttackPhase.Telegraph, _) =>
                 EnemyTelegraphMarker.BanditAimLine,
-            EnemyAttackPhase.Telegraph => EnemyTelegraphMarker.WildlifeLungeArrow,
-            EnemyAttackPhase.Active when enemy.Archetype == EnemyArchetype.Bandit =>
+            (EnemyArchetype.Wildlife, EnemyAttackPhase.Telegraph, _) =>
+                EnemyTelegraphMarker.WildlifeLungeArrow,
+            (EnemyArchetype.Bandit, EnemyAttackPhase.Active, _) =>
                 EnemyTelegraphMarker.BanditMuzzleFlash,
-            EnemyAttackPhase.Active => EnemyTelegraphMarker.WildlifeLungeTrail,
-            _ when enemy.BehaviorState == EnemyBehaviorState.Notice =>
+            (EnemyArchetype.Wildlife, EnemyAttackPhase.Active, _) =>
+                EnemyTelegraphMarker.WildlifeLungeTrail,
+            (_, _, EnemyBehaviorState.Notice) =>
                 EnemyTelegraphMarker.NoticeBurst,
             _ => EnemyTelegraphMarker.None
         };
 
         return new EnemyPresentationDefinition(
             animationState,
-            enemy.Archetype == EnemyArchetype.Bandit
-                ? EnemyPaletteTint.Bandit
-                : EnemyPaletteTint.Wildlife,
+            enemy.Archetype switch
+            {
+                EnemyArchetype.Bandit => EnemyPaletteTint.Bandit,
+                EnemyArchetype.Wildlife => EnemyPaletteTint.Wildlife,
+                EnemyArchetype.DynamiteArmadillo => EnemyPaletteTint.Armadillo,
+                _ => EnemyPaletteTint.Snake
+            },
             telegraphMarker,
             facingDirection,
-            enemy.AttackPhase == EnemyAttackPhase.Active);
+            enemy.AttackPhase == EnemyAttackPhase.Active &&
+            (enemy.Archetype == EnemyArchetype.Bandit || enemy.Archetype == EnemyArchetype.Wildlife));
     }
 }

@@ -153,6 +153,8 @@ internal static class AnimationTests
                                 "player sprites preserve the required source feet anchor");
                             Assert(FrontierAnimationCatalog.BanditMetadata.SourceFeetAnchor == new Vector2(8, 13) &&
                                    FrontierAnimationCatalog.WildlifeMetadata.SourceFeetAnchor == new Vector2(8, 13) &&
+                                   FrontierAnimationCatalog.ArmadilloMetadata.SourceFeetAnchor == new Vector2(8, 13) &&
+                                   FrontierAnimationCatalog.SnakeMetadata.SourceFeetAnchor == new Vector2(8, 13) &&
                                    FrontierAnimationCatalog.PickupMetadata.SourceFeetAnchor == new Vector2(8, 13),
                                 "all Frontier actors expose the shared source feet anchor");
                             Assert(FrontierAnimationCatalog.PlayerMetadata.SourceEffectAnchor == new Vector2(25, 15),
@@ -161,6 +163,10 @@ internal static class AnimationTests
                                 "bandit metadata exposes its authored muzzle anchor");
                             Assert(FrontierAnimationCatalog.WildlifeMetadata.SourceEffectAnchor == new Vector2(14, 9),
                                 "wildlife metadata exposes its authored lunge effect anchor");
+                            Assert(FrontierAnimationCatalog.ArmadilloMetadata.SourceEffectAnchor == new Vector2(8, 8),
+                                "armadillo metadata keeps a centered source anchor for future effects");
+                            Assert(FrontierAnimationCatalog.SnakeMetadata.SourceEffectAnchor == new Vector2(8, 8),
+                                "snake metadata keeps a centered source anchor for future effects");
                             Assert(FrontierAnimationCatalog.PickupMetadata.SourceEffectAnchor == new Vector2(8, 8),
                                 "pickup metadata exposes its authored center effect anchor");
             });
@@ -186,6 +192,30 @@ internal static class AnimationTests
                                     (PresentationAnimationState.WildlifeLunge, "lunge", 4, 12f, AnimationPlaybackMode.OneShot),
                                     (PresentationAnimationState.EnemyDefeated, "defeated", 2, 6f, AnimationPlaybackMode.OneShot)
                                 });
+                            AssertEnemyClips(
+                                FrontierAnimationCatalog.ArmadilloClips,
+                                "Armadillo",
+                                new[]
+                                {
+                                    (PresentationAnimationState.ArmadilloPatrol, "patrol", 4, 6f, AnimationPlaybackMode.Loop),
+                                    (PresentationAnimationState.ArmadilloNotice, "notice", 2, 8f, AnimationPlaybackMode.OneShot),
+                                    (PresentationAnimationState.ArmadilloRoll, "roll", 4,
+                                        4f / GameWorld.DynamiteArmadilloRollDuration, AnimationPlaybackMode.OneShot)
+                                });
+                            AssertEnemyClips(
+                                FrontierAnimationCatalog.SnakeClips,
+                                "Snake",
+                                new[]
+                                {
+                                    (PresentationAnimationState.SnakeHidden, "hidden", 2, 4f, AnimationPlaybackMode.Loop),
+                                    (PresentationAnimationState.SnakeRise, "rise", 2,
+                                        2f / GameWorld.SidewinderSnakeRisingDuration, AnimationPlaybackMode.OneShot),
+                                    (PresentationAnimationState.SnakeExposed, "exposed", 4,
+                                        4f / GameWorld.SidewinderSnakeExposedDuration, AnimationPlaybackMode.OneShot),
+                                    (PresentationAnimationState.SnakeRetreat, "retreat", 2,
+                                        2f / GameWorld.SidewinderSnakeRetreatDuration, AnimationPlaybackMode.OneShot),
+                                    (PresentationAnimationState.EnemyDefeated, "defeated", 2, 6f, AnimationPlaybackMode.OneShot)
+                                });
 
                             var defeatedBandit = new EnemyState(
                                 "bandit", EnemyArchetype.Bandit, EnemyBehaviorState.Defeated, EnemyAttackPhase.None,
@@ -195,18 +225,28 @@ internal static class AnimationTests
                                 Id = "wildlife",
                                 Archetype = EnemyArchetype.Wildlife
                             };
+                            var hiddenSnake = new EnemyState(
+                                "snake", EnemyArchetype.SidewinderSnake, EnemyBehaviorState.Hidden, EnemyAttackPhase.None,
+                                Vector2.Zero, Vector2.Zero, 1, 1, true, 0, 0);
                             Assert(FrontierAnimationCatalog.ForEnemy(defeatedBandit).Frames[0].AssetKey ==
                                    "Frontier/Bandit/defeated_0.png",
                                 "defeated bandit selection remains archetype-specific");
                             Assert(FrontierAnimationCatalog.ForEnemy(defeatedWildlife).Frames[0].AssetKey ==
                                    "Frontier/Wildlife/defeated_0.png",
                                 "defeated wildlife selection remains archetype-specific");
+                            Assert(FrontierAnimationCatalog.ForEnemy(hiddenSnake).Frames[0].AssetKey ==
+                                   "Frontier/Snake/hidden_0.png",
+                                "hidden snakes render their mound art instead of disappearing");
 
                             var clock = new PresentationAnimationClock();
                             clock.Advance(0, defeatedWildlife);
                             Assert(clock.CurrentClip == FrontierAnimationCatalog.WildlifeClips[PresentationAnimationState.EnemyDefeated] &&
                                    clock.CurrentFrame().AssetKey == "Frontier/Wildlife/defeated_0.png",
                                 "snapshot-driven clocks retain the selected enemy archetype clip");
+                            clock.Advance(0f, hiddenSnake);
+                            Assert(clock.CurrentClip == FrontierAnimationCatalog.SnakeClips[PresentationAnimationState.SnakeHidden] &&
+                                   clock.CurrentFrame().AssetKey == "Frontier/Snake/hidden_0.png",
+                                "snapshot-driven clocks retain hidden snake mound rendering");
             });
             yield return new TestCase("frontier pickup clips cover currency health and ammo", () =>
             {

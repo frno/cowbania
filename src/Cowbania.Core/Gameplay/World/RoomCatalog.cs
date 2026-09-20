@@ -17,7 +17,8 @@ public static class RoomCatalog
         new Vector2(80, 480), new Vector2(80, 480), new Vector2(1440, 480),
         ImmutableArray.Create(
             new EnemyDefinition("hub-bandit-0", EnemyArchetype.Bandit, new Vector2(520, 480), 120),
-            new EnemyDefinition("hub-wildlife-1", EnemyArchetype.Wildlife, new Vector2(1040, 480), 120)),
+            new EnemyDefinition("hub-wildlife-1", EnemyArchetype.Wildlife, new Vector2(1040, 480), 120),
+            new EnemyDefinition("hub-armadillo-2", EnemyArchetype.DynamiteArmadillo, new Vector2(760, 320), 90)),
         ImmutableArray.Create(
             new PickupDefinition("hub-currency", new Vector2(1120, 448), PickupType.Currency),
             new PickupDefinition("hub-health", new Vector2(1280, 448), PickupType.Health)));
@@ -31,7 +32,8 @@ public static class RoomCatalog
         new Vector2(40, 480), new Vector2(760, 480), new Vector2(1440, 480),
         ImmutableArray.Create(
             new EnemyDefinition("branch-wildlife-0", EnemyArchetype.Wildlife, new Vector2(520, 480), 120),
-            new EnemyDefinition("branch-bandit-1", EnemyArchetype.Bandit, new Vector2(1120, 480), 120)),
+            new EnemyDefinition("branch-bandit-1", EnemyArchetype.Bandit, new Vector2(1120, 480), 120),
+            new EnemyDefinition("branch-snake-2", EnemyArchetype.SidewinderSnake, new Vector2(880, 290), 0)),
         ImmutableArray.Create(
             new PickupDefinition("branch-reserve-ammo", new Vector2(760, 448), PickupType.ReserveAmmo),
             new PickupDefinition("branch-currency", new Vector2(1440, 448), PickupType.Currency)));

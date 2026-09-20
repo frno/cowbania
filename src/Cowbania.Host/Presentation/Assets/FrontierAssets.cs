@@ -7,6 +7,8 @@ internal sealed record FrontierAssets(
     IReadOnlyDictionary<string, Texture2D> Player,
     IReadOnlyDictionary<string, Texture2D> Bandit,
     IReadOnlyDictionary<string, Texture2D> Wildlife,
+    IReadOnlyDictionary<string, Texture2D> Armadillo,
+    IReadOnlyDictionary<string, Texture2D> Snake,
     IReadOnlyDictionary<string, Texture2D> Pickup,
     IReadOnlyDictionary<string, Texture2D> Terrain,
     IReadOnlyDictionary<string, Texture2D> Props,
@@ -22,7 +24,11 @@ internal static class FrontierAssetLoader
         StartupDiagnostics.Mark($"player sprites loaded ({player.Count})");
         var bandit = LoadActors(graphicsDevice, "Bandit", 16, 16, FrontierAnimationCatalog.BanditClips.Values);
         var wildlife = LoadActors(graphicsDevice, "Wildlife", 16, 16, FrontierAnimationCatalog.WildlifeClips.Values);
-        StartupDiagnostics.Mark($"enemy sprites loaded (bandit={bandit.Count}, wildlife={wildlife.Count})");
+        var armadillo = LoadActors(graphicsDevice, "Armadillo", 16, 16, FrontierAnimationCatalog.ArmadilloClips.Values);
+        var snake = LoadActors(graphicsDevice, "Snake", 16, 16, FrontierAnimationCatalog.SnakeClips.Values);
+        StartupDiagnostics.Mark(
+            $"enemy sprites loaded (bandit={bandit.Count}, wildlife={wildlife.Count}, " +
+            $"armadillo={armadillo.Count}, snake={snake.Count})");
         var pickup = LoadActors(graphicsDevice, "Pickup", 16, 16, FrontierAnimationCatalog.PickupClips.Values);
         StartupDiagnostics.Mark($"pickup sprites loaded ({pickup.Count})");
 
@@ -44,7 +50,7 @@ internal static class FrontierAssetLoader
         StartupDiagnostics.Mark(
             $"environment sprites loaded (terrain={terrain.Count}, props={props.Count}, " +
             $"effects={effects.Count}, ui={ui.Count}, backgrounds={backgrounds.Count})");
-        return new FrontierAssets(player, bandit, wildlife, pickup, terrain, props, effects, ui, backgrounds);
+        return new FrontierAssets(player, bandit, wildlife, armadillo, snake, pickup, terrain, props, effects, ui, backgrounds);
     }
 
     private static Dictionary<string, Texture2D> LoadActors(

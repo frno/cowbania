@@ -6,6 +6,8 @@ internal static class AssetInventory
         FrontierAnimationCatalog.PlayerClips.Values
             .Concat(FrontierAnimationCatalog.BanditClips.Values)
             .Concat(FrontierAnimationCatalog.WildlifeClips.Values)
+            .Concat(FrontierAnimationCatalog.ArmadilloClips.Values)
+            .Concat(FrontierAnimationCatalog.SnakeClips.Values)
             .Concat(FrontierAnimationCatalog.PickupClips.Values)
             .SelectMany(clip => clip.Frames)
             .Select(frame => frame.AssetKey)

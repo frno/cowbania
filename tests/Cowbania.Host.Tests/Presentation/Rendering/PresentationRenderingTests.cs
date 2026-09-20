@@ -82,8 +82,13 @@ internal static class PresentationRenderingTests
                                    actors.Contains("private const int ActorScale = 3", StringComparison.Ordinal) &&
                                    actors.Contains("FrontierAnimationCatalog.PlayerMetadata", StringComparison.Ordinal) &&
                                    actors.Contains("FrontierAnimationCatalog.BanditMetadata", StringComparison.Ordinal) &&
-                                   actors.Contains("FrontierAnimationCatalog.WildlifeMetadata", StringComparison.Ordinal),
-                                "player rendering must use the new 2x player scale while bandit and wildlife actors keep their authored 3x anchors");
+                                   actors.Contains("FrontierAnimationCatalog.WildlifeMetadata", StringComparison.Ordinal) &&
+                                   actors.Contains("FrontierAnimationCatalog.ArmadilloMetadata", StringComparison.Ordinal) &&
+                                   actors.Contains("FrontierAnimationCatalog.SnakeMetadata", StringComparison.Ordinal),
+                                "player rendering must use the new 2x player scale while every enemy archetype keeps its authored 3x anchors");
+                            Assert(actors.Contains("context.Assets.Armadillo", StringComparison.Ordinal) &&
+                                   actors.Contains("context.Assets.Snake", StringComparison.Ordinal),
+                                "actor rendering must route armadillo and snake snapshots through their dedicated asset caches");
                             Assert(!source.Contains("new Random", StringComparison.Ordinal) &&
                                    !source.Contains("DateTime.", StringComparison.Ordinal),
                                 "presentation must not introduce nondeterministic random or wall-clock selection");

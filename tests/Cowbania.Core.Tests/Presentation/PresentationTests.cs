@@ -24,6 +24,15 @@ internal static class PresentationTests
                             var wildlifeActive = EnemyPresentationStateSelector.Select(new EnemyState(
                                 "wildlife", EnemyArchetype.Wildlife, EnemyBehaviorState.Attack, EnemyAttackPhase.Active,
                                 Vector2.Zero, Vector2.UnitX, 1, 2, true, 0.5f, 0.25f));
+                            var armadilloNotice = EnemyPresentationStateSelector.Select(new EnemyState(
+                                "armadillo", EnemyArchetype.DynamiteArmadillo, EnemyBehaviorState.Notice, EnemyAttackPhase.None,
+                                Vector2.Zero, Vector2.Zero, 1, 2, true, 0.5f, 0f));
+                            var snakeRise = EnemyPresentationStateSelector.Select(new EnemyState(
+                                "snake-rise", EnemyArchetype.SidewinderSnake, EnemyBehaviorState.Attack, EnemyAttackPhase.Telegraph,
+                                Vector2.Zero, Vector2.Zero, 1, 1, true, 0.5f, 0.5f));
+                            var snakeRetreat = EnemyPresentationStateSelector.Select(new EnemyState(
+                                "snake-retreat", EnemyArchetype.SidewinderSnake, EnemyBehaviorState.Attack, EnemyAttackPhase.Recovery,
+                                Vector2.Zero, Vector2.Zero, -1, 1, true, 0.5f, 0.5f));
                             var defeated = EnemyPresentationStateSelector.Select(new EnemyState(
                                 "defeated", EnemyArchetype.Bandit, EnemyBehaviorState.Defeated, EnemyAttackPhase.None,
                                 Vector2.Zero, Vector2.Zero, 0, 0, false, 1f, 0f));
@@ -37,12 +46,25 @@ internal static class PresentationTests
                                    wildlifeActive.TelegraphMarker == EnemyTelegraphMarker.WildlifeLungeTrail &&
                                    wildlifeActive.AttackActive,
                                 "wildlife active attack selects its lunge trail and active flag");
+                            Assert(armadilloNotice.AnimationState == PresentationAnimationState.ArmadilloNotice &&
+                                   armadilloNotice.TelegraphMarker == EnemyTelegraphMarker.NoticeBurst &&
+                                   !armadilloNotice.AttackActive,
+                                "armadillo notice uses the authored warning clip without attack-only effects");
+                            Assert(snakeRise.AnimationState == PresentationAnimationState.SnakeRise &&
+                                   snakeRise.TelegraphMarker == EnemyTelegraphMarker.None &&
+                                   snakeRise.PaletteTint == EnemyPaletteTint.Snake,
+                                "snake rising is communicated by its authored pose rather than recycled telegraphs");
+                            Assert(snakeRetreat.AnimationState == PresentationAnimationState.SnakeRetreat &&
+                                   snakeRetreat.FacingDirection == -1 &&
+                                   !snakeRetreat.AttackActive,
+                                "snake retreat preserves facing while suppressing active-hit effects");
                             Assert(defeated.AnimationState == PresentationAnimationState.EnemyDefeated &&
                                    defeated.TelegraphMarker == EnemyTelegraphMarker.None &&
                                    defeated.FacingDirection == 1,
                                 "defeated enemies suppress telegraphs and normalize facing");
-                            Assert(banditTelegraph.PaletteTint != wildlifeActive.PaletteTint,
-                                "bandit and wildlife use stable distinct palette tints");
+                            Assert(banditTelegraph.PaletteTint != wildlifeActive.PaletteTint &&
+                                   armadilloNotice.PaletteTint != snakeRise.PaletteTint,
+                                "enemy archetypes use stable distinct palette tints");
             });
             yield return new TestCase("player animation selector covers idle run jump fall shoot reload hurt and dash", () =>
             {

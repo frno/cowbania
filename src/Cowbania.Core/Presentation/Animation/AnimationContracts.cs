@@ -57,5 +57,12 @@ public enum PresentationAnimationState
     WildlifePatrol,
     WildlifeNotice,
     WildlifeLunge,
+    ArmadilloPatrol,
+    ArmadilloNotice,
+    ArmadilloRoll,
+    SnakeHidden,
+    SnakeRise,
+    SnakeExposed,
+    SnakeRetreat,
     EnemyDefeated
 }

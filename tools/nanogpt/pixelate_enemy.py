@@ -6,13 +6,18 @@ that module's shared low-level pipeline primitives (`_load_rgba`,
 the canvas dimensions, the feet anchor, the state list, and the per-state
 derivation logic for enemies.
 
-Two enemy types, matching the stable asset contract in
+Four enemy types, matching the stable asset contract in
 `Assets/Art/Frontier/manifest.md`:
 
 * `Bandit` — upright human gunslinger silhouette, 12 frames:
   `patrol_0..3`, `notice_0..1`, `attack_0..3`, `defeated_0..1`.
 * `Wildlife` — low, wide, forward-heavy quadruped silhouette, 12 frames:
   `patrol_0..3`, `notice_0..1`, `lunge_0..3`, `defeated_0..1`.
+* `Armadillo` — low rolling shell hazard, 10 frames:
+  `patrol_0..3`, `notice_0..1`, `roll_0..3`.
+* `Snake` — stationary ambush hazard, 12 frames:
+  `hidden_0..1`, `rise_0..1`, `exposed_0..3`, `retreat_0..1`,
+  `defeated_0..1`.
 
 Anchors:
 * Canvas 16x16.
@@ -23,8 +28,8 @@ Anchors:
 
 Frame derivation
 ----------------
-Only 8 AI calls per full-enemy regeneration — one base pose per state per
-enemy. Intra-state frames are derived by pixel-level operations:
+One AI call per state per enemy. Intra-state frames are derived by
+pixel-level operations:
 
   bandit patrol   4 frames: bob + leg-shift walk cycle.
   bandit notice   2 frames: base + head-up variant, both with gold `!`
@@ -40,10 +45,20 @@ enemy. Intra-state frames are derived by pixel-level operations:
                              accents / recovery.
   wildlife defeated 2 frames: fallen base + dust-puff variant.
 
+  armadillo patrol  4 frames: bob-cycle crawl with fuse twinkle.
+  armadillo notice  2 frames: stop / tense-up with brighter fuse catch.
+  armadillo roll    4 frames: compact charge cycle with low speed streaks.
+
+  snake hidden     2 frames: dirt-mound hazard marker with warning glint.
+  snake rise       2 frames: emerging from the mound.
+  snake exposed    4 frames: upright idle-sway / strike-ready cycle.
+  snake retreat    2 frames: dropping back into the mound.
+  snake defeated   2 frames: collapsed body + hit-flash variant.
+
 Usage:
-    python tools/nanogpt/pixelate_enemy.py           # all 24 frames
+    python tools/nanogpt/pixelate_enemy.py           # all enemy frames
     python tools/nanogpt/pixelate_enemy.py --enemy bandit
-    python tools/nanogpt/pixelate_enemy.py --enemy wildlife --state lunge
+    python tools/nanogpt/pixelate_enemy.py --enemy snake --state exposed
 """
 
 from __future__ import annotations
@@ -62,6 +77,8 @@ REPO_ROOT = TOOLS.parents[1]
 SOURCE_DIR = TOOLS / "out"
 BANDIT_DIR = REPO_ROOT / "Assets" / "Art" / "Frontier" / "Bandit"
 WILDLIFE_DIR = REPO_ROOT / "Assets" / "Art" / "Frontier" / "Wildlife"
+ARMADILLO_DIR = REPO_ROOT / "Assets" / "Art" / "Frontier" / "Armadillo"
+SNAKE_DIR = REPO_ROOT / "Assets" / "Art" / "Frontier" / "Snake"
 
 CANVAS = (16, 16)
 FEET_ANCHOR = (8, 15)
@@ -76,13 +93,31 @@ TARGET_COLORS = 4
 STATE_COUNTS = {
     "bandit": {"patrol": 4, "notice": 2, "attack": 4, "defeated": 2},
     "wildlife": {"patrol": 4, "notice": 2, "lunge": 4, "defeated": 2},
+    "armadillo": {"patrol": 4, "notice": 2, "roll": 4},
+    "snake": {"hidden": 2, "rise": 2, "exposed": 4, "retreat": 2, "defeated": 2},
+}
+
+DEST_DIRS = {
+    "bandit": BANDIT_DIR,
+    "wildlife": WILDLIFE_DIR,
+    "armadillo": ARMADILLO_DIR,
+    "snake": SNAKE_DIR,
 }
 
 # Palette convenience (from Frontier palette in pixelate_sprite.PALETTE).
 OUTLINE = (0x23, 0x18, 0x20)
+DEEP_BROWN = (0x39, 0x23, 0x26)
+RUST = (0x8E, 0x42, 0x2A)
+OCHRE = (0xCB, 0x85, 0x36)
 GOLD = (0xF1, 0xB3, 0x36)
 SAND = (0xEF, 0xBE, 0x5F)
+TIMBER = (0x68, 0x3C, 0x2A)
+TIMBER_HI = (0xA5, 0x63, 0x34)
 BONE = (0xE0, 0xCC, 0x9D)
+VIOLET = (0x50, 0x48, 0x65)
+BLUE_GREY = (0x53, 0x67, 0x78)
+DEEP_BLUE = (0x36, 0x41, 0x53)
+SAGE = (0x5C, 0x6F, 0x53)
 RED = (0xBE, 0x3D, 0x30)
 
 
@@ -332,6 +367,29 @@ def _stamp(im: Image.Image, pixels) -> Image.Image:
     return ps._stamp(im, pixels)
 
 
+def _tighten_palette(im: Image.Image, target_colors: int = 4) -> Image.Image:
+    im = im.copy()
+    im = ps._reduce_to_dominant_colors(im, target_colors)
+    im = ps._mode_filter_3x3(im)
+    return ps._snap_alpha(im)
+
+
+def _apply_palette_map(im: Image.Image, mapping: dict[tuple[int, int, int], tuple[int, int, int]]) -> Image.Image:
+    im = im.copy()
+    px = im.load()
+    w, h = im.size
+    for y in range(h):
+        for x in range(w):
+            r, g, b, a = px[x, y]
+            if a == 0:
+                continue
+            key = (r, g, b)
+            if key in mapping:
+                nr, ng, nb = mapping[key]
+                px[x, y] = (nr, ng, nb, a)
+    return im
+
+
 def _notice_bang(im: Image.Image, offset_y: int = 0) -> Image.Image:
     """Stamp a bright gold `!` above the head (bandit)."""
     ax, ay = NOTICE_ANCHOR
@@ -387,8 +445,64 @@ def _lunge_streaks(im: Image.Image, phase: int) -> Image.Image:
     for i, y in enumerate((10, 12)):
         length = 2 + phase + i
         for x in range(0, min(length, 5)):
-            stamps.append((x, y, (0x50, 0x48, 0x65)))  # distance violet
+            stamps.append((x, y, VIOLET))
     return _stamp(im, stamps)
+
+
+def _armadillo_fuse(im: Image.Image, phase: int = 0, bright: bool = False) -> Image.Image:
+    """Tiny ember/fuse telegraph for the armadillo shell top."""
+    core = GOLD if bright else SAND
+    hot = SAND if bright else GOLD
+    x = 8 + ((phase % 2) - 0)
+    y = 3 + (0 if bright else (phase % 2))
+    stamps = [
+        (x, y, core),
+        (x, y - 1, hot),
+        (x - 1, y, OCHRE if bright else TIMBER_HI),
+    ]
+    if bright:
+        stamps.append((x + 1, y - 1, SAND))
+    return _stamp(im, stamps)
+
+
+def _low_speed_streaks(im: Image.Image, phase: int) -> Image.Image:
+    """Low trailing streaks behind compact ground-hugging motion."""
+    stamps = []
+    for y in (11, 12, 13):
+        length = min(5, 1 + phase + (1 if y == 12 else 0))
+        for x in range(length):
+            stamps.append((x, y, TIMBER))
+    return _stamp(im, stamps)
+
+
+def _hidden_glint(im: Image.Image, phase: int = 0) -> Image.Image:
+    """Telegraph glint inside the snake's dirt crack marker."""
+    x = 8 + (1 if phase % 2 else 0)
+    return _stamp(im, [(x, 12, GOLD)])
+
+
+def _snake_eye_flash(im: Image.Image, phase: int = 0) -> Image.Image:
+    """Tiny gold eye flash on the snake's raised head."""
+    x = 11
+    y = 5 + (phase % 2)
+    return _stamp(im, [(x, y, GOLD), (x - 1, y + 1, BONE)])
+
+
+def _snake_mound(im: Image.Image, variant: int = 0) -> Image.Image:
+    """Reinforce the dirt mound foreground read for hidden/rise/retreat states."""
+    if variant == 0:
+        stamps = [(4, 14, TIMBER), (5, 13, RUST), (10, 13, RUST), (11, 14, TIMBER)]
+    else:
+        stamps = [(3, 14, TIMBER), (5, 13, RUST), (9, 13, RUST), (12, 14, TIMBER)]
+    return _stamp(im, stamps)
+
+
+def _snake_hit_flash(im: Image.Image) -> Image.Image:
+    """Small bullet-hit accent for the defeated snake variant."""
+    return _stamp(im, [
+        (11, 9, RED),
+        (12, 8, BONE),
+    ])
 
 
 # ---------------------------------------------------------------------------
@@ -493,11 +607,94 @@ def _build_wildlife(state: str, frame: int) -> Image.Image:
     return out
 
 
+def _build_armadillo(state: str, frame: int) -> Image.Image:
+    override = _per_frame_override("armadillo", state, frame)
+    if override is not None:
+        return _guarantee_feet_anchor(_clip_below_feet(override))
+
+    base = _base_for("armadillo", "patrol" if state == "notice" else state)
+
+    if state == "patrol":
+        bob_seq = (0, -1, 0, -1)
+        sway_seq = (0, 1, 0, -1)
+        out = _shift(base, sway_seq[frame], bob_seq[frame])
+        out = _tighten_palette(out, 4)
+        out = _armadillo_fuse(out, phase=frame, bright=False)
+    elif state == "notice":
+        out = _bob_upper(base, cutoff_y=8, dy=(0, -1)[frame])
+        out = _tighten_palette(out, 4)
+        out = _armadillo_fuse(out, phase=frame, bright=True)
+    elif state == "roll":
+        x_seq = (-1, 0, 1, 0)
+        y_seq = (0, -1, 0, -1)
+        out = _shift(base, x_seq[frame], y_seq[frame])
+        out = _tighten_palette(out, 4)
+        out = _armadillo_fuse(out, phase=frame, bright=True)
+        if frame >= 1:
+            out = _low_speed_streaks(out, phase=frame)
+    else:
+        raise ValueError(f"Unknown armadillo state: {state}")
+
+    out = _apply_palette_map(out, {
+        TIMBER_HI: RUST,
+        SAND: GOLD,
+        RED: RUST,
+        BONE: OCHRE,
+    })
+    out = _clip_below_feet(out)
+    out = _guarantee_feet_anchor(out)
+    return out
+
+
+def _build_snake(state: str, frame: int) -> Image.Image:
+    override = _per_frame_override("snake", state, frame)
+    if override is not None:
+        return _guarantee_feet_anchor(_clip_below_feet(override))
+
+    base = _base_for("snake", state)
+
+    if state == "hidden":
+        out = _tighten_palette(base, 4)
+        if frame != 0:
+            out = _hidden_glint(out, phase=frame)
+        out = _snake_mound(out, variant=frame)
+    elif state == "rise":
+        out = _tighten_palette(_shift(base, 0, (1, 0)[frame]), 4)
+        out = _snake_mound(out, variant=frame)
+        if frame == 1:
+            out = _snake_eye_flash(out, phase=frame)
+    elif state == "exposed":
+        sway_x = (0, 1, 0, -1)
+        neck_dy = (0, -1, 0, -1)
+        out = _shift(base, sway_x[frame], 0)
+        out = _bob_upper(out, cutoff_y=9, dy=neck_dy[frame])
+        out = _tighten_palette(out, 4)
+        if frame in (1, 3):
+            out = _snake_eye_flash(out, phase=frame)
+    elif state == "retreat":
+        out = _tighten_palette(_shift(base, 0, (0, 1)[frame]), 4)
+        out = _snake_mound(out, variant=frame)
+    elif state == "defeated":
+        out = _tighten_palette(base if frame == 0 else _shift(base, 1, 0), 4)
+        if frame == 1:
+            out = _snake_hit_flash(out)
+    else:
+        raise ValueError(f"Unknown snake state: {state}")
+
+    out = _clip_below_feet(out)
+    out = _guarantee_feet_anchor(out)
+    return out
+
+
 def build_frame(enemy: str, state: str, frame: int) -> Image.Image:
     if enemy == "bandit":
         return _build_bandit(state, frame)
     if enemy == "wildlife":
         return _build_wildlife(state, frame)
+    if enemy == "armadillo":
+        return _build_armadillo(state, frame)
+    if enemy == "snake":
+        return _build_snake(state, frame)
     raise ValueError(f"Unknown enemy: {enemy}")
 
 
@@ -507,7 +704,7 @@ def build_frame(enemy: str, state: str, frame: int) -> Image.Image:
 
 
 def _write(im: Image.Image, enemy: str, state: str, frame: int) -> Path:
-    dest_dir = BANDIT_DIR if enemy == "bandit" else WILDLIFE_DIR
+    dest_dir = DEST_DIRS[enemy]
     dest_dir.mkdir(parents=True, exist_ok=True)
     dest = dest_dir / f"{state}_{frame}.png"
     im.save(dest)
@@ -543,7 +740,7 @@ def validate_frame(im: Image.Image, state: str, frame: int) -> list[str]:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--enemy", choices=("bandit", "wildlife"), default=None)
+    parser.add_argument("--enemy", choices=tuple(STATE_COUNTS), default=None)
     parser.add_argument("--state", default=None)
     parser.add_argument("--frame", type=int, default=None)
     args = parser.parse_args()

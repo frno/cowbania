@@ -16,14 +16,24 @@ internal static class ProjectileSystem
             };
             if (projectile.Owner == ProjectileOwner.Player)
             {
-                var hitEnemy = state.CurrentEnemies.FindIndex(enemy =>
-                    enemy.Alive && Vector2.Distance(projectile.Position, enemy.Position) < 30);
-                if (hitEnemy >= 0)
+                var consumed = false;
+                foreach (var enemy in state.CurrentEnemies)
                 {
-                    state.CurrentEnemies[hitEnemy].Damage(projectile.Damage);
+                    if (!enemy.Alive ||
+                        Vector2.Distance(projectile.Position, enemy.Position) >= 30 ||
+                        !CanBeHitByPlayerProjectile(enemy))
+                    {
+                        continue;
+                    }
+
+                    enemy.Damage(projectile.Damage);
                     state.Projectiles.RemoveAt(i);
-                    continue;
+                    consumed = true;
+                    break;
                 }
+
+                if (consumed)
+                    continue;
             }
             else if (Vector2.Distance(
                          projectile.Position,
@@ -51,4 +61,12 @@ internal static class ProjectileSystem
         position.X > state.CurrentRoom.Bounds.Right ||
         position.Y < state.CurrentRoom.Bounds.Y ||
         position.Y > state.CurrentRoom.Bounds.Bottom;
+
+    private static bool CanBeHitByPlayerProjectile(EnemyRuntime enemy) => enemy.Definition.Archetype switch
+    {
+        EnemyArchetype.DynamiteArmadillo => false,
+        EnemyArchetype.SidewinderSnake => enemy.BehaviorState == EnemyBehaviorState.Attack &&
+                                          enemy.AttackPhase is EnemyAttackPhase.Telegraph or EnemyAttackPhase.Active,
+        _ => true
+    };
 }

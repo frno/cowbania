@@ -68,9 +68,11 @@ internal static class WorldTests
                                     $"{name} interaction anchors remain authored");
                             }
 
-                            Assert(RoomCatalog.Hub.EnemySpawns.SequenceEqual(new[] { new Vector2(520, 480), new Vector2(1040, 480) }),
+                            Assert(RoomCatalog.Hub.EnemySpawns.SequenceEqual(
+                                    new[] { new Vector2(520, 480), new Vector2(1040, 480), new Vector2(760, 320) }),
                                 "hub enemy placements remain authored");
-                            Assert(RoomCatalog.Branch.EnemySpawns.SequenceEqual(new[] { new Vector2(520, 480), new Vector2(1120, 480) }),
+                            Assert(RoomCatalog.Branch.EnemySpawns.SequenceEqual(
+                                    new[] { new Vector2(520, 480), new Vector2(1120, 480), new Vector2(880, 290) }),
                                 "branch enemy placements remain authored");
                             Assert(RoomCatalog.Hub.PickupDefinitions.SequenceEqual(new[]
                                 {

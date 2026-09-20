@@ -32,12 +32,22 @@ internal sealed class ActorRenderer(
             var presentation = EnemyPresentationStateSelector.Select(enemy);
             DrawTelegraph(enemy, presentation);
             var clip = FrontierAnimationCatalog.ForEnemy(enemy);
-            var cache = enemy.Archetype == EnemyArchetype.Bandit
-                ? context.Assets.Bandit
-                : context.Assets.Wildlife;
-            var metadata = enemy.Archetype == EnemyArchetype.Bandit
-                ? FrontierAnimationCatalog.BanditMetadata
-                : FrontierAnimationCatalog.WildlifeMetadata;
+            var cache = enemy.Archetype switch
+            {
+                EnemyArchetype.Bandit => context.Assets.Bandit,
+                EnemyArchetype.Wildlife => context.Assets.Wildlife,
+                EnemyArchetype.DynamiteArmadillo => context.Assets.Armadillo,
+                EnemyArchetype.SidewinderSnake => context.Assets.Snake,
+                _ => throw new ArgumentOutOfRangeException()
+            };
+            var metadata = enemy.Archetype switch
+            {
+                EnemyArchetype.Bandit => FrontierAnimationCatalog.BanditMetadata,
+                EnemyArchetype.Wildlife => FrontierAnimationCatalog.WildlifeMetadata,
+                EnemyArchetype.DynamiteArmadillo => FrontierAnimationCatalog.ArmadilloMetadata,
+                EnemyArchetype.SidewinderSnake => FrontierAnimationCatalog.SnakeMetadata,
+                _ => throw new ArgumentOutOfRangeException()
+            };
             var frame = Math.Clamp(timeline.EnemyFrame(enemy.Id), 0, clip.Frames.Length - 1);
             DrawActor(cache[clip.Frames[frame].AssetKey], enemy.Position, metadata, ActorScale, presentation.FacingDirection);
             effects.DrawEnemy(enemy, presentation);

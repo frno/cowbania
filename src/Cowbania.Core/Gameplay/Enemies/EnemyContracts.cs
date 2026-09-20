@@ -5,11 +5,14 @@ namespace Cowbania.Core.Gameplay.Enemies;
 public enum EnemyArchetype
 {
     Bandit,
-    Wildlife
+    Wildlife,
+    DynamiteArmadillo,
+    SidewinderSnake
 }
 
 public enum EnemyBehaviorState
 {
+    Hidden,
     Patrol,
     Notice,
     Chase,

@@ -1,7 +1,16 @@
+using System.Collections;
+using System.Reflection;
+
 namespace Cowbania.Core.Tests.Enemies;
 
 internal static class EnemiesTests
 {
+    private static readonly Type EnemyRuntimeType =
+        typeof(GameWorld).Assembly.GetType("Cowbania.Core.Gameplay.Enemies.EnemyRuntime")!;
+    private static readonly MethodInfo CanBeHitByPlayerProjectileMethod =
+        typeof(GameWorld).Assembly.GetType("Cowbania.Core.Gameplay.Combat.ProjectileSystem")!
+            .GetMethod("CanBeHitByPlayerProjectile", BindingFlags.Static | BindingFlags.NonPublic)!;
+
     public static IEnumerable<TestCase> Cases
     {
         get
@@ -33,17 +42,27 @@ internal static class EnemiesTests
             yield return new TestCase("enemy definitions assign stable bandit and wildlife encounters", () =>
             {
                 Assert(RoomCatalog.Hub.EnemyDefinitions.Select(enemy => enemy.Archetype)
-                                    .SequenceEqual(new[] { EnemyArchetype.Bandit, EnemyArchetype.Wildlife }),
-                                "hub slots are assigned bandit then wildlife");
+                                    .SequenceEqual(new[]
+                                    {
+                                        EnemyArchetype.Bandit,
+                                        EnemyArchetype.Wildlife,
+                                        EnemyArchetype.DynamiteArmadillo
+                                    }),
+                                "hub slots are assigned bandit wildlife then armadillo");
                             Assert(RoomCatalog.Branch.EnemyDefinitions.Select(enemy => enemy.Archetype)
-                                    .SequenceEqual(new[] { EnemyArchetype.Wildlife, EnemyArchetype.Bandit }),
-                                "branch slots are assigned wildlife then bandit");
+                                    .SequenceEqual(new[]
+                                    {
+                                        EnemyArchetype.Wildlife,
+                                        EnemyArchetype.Bandit,
+                                        EnemyArchetype.SidewinderSnake
+                                    }),
+                                "branch slots are assigned wildlife bandit then sidewinder snake");
                             Assert(RoomCatalog.Hub.EnemyDefinitions.Concat(RoomCatalog.Branch.EnemyDefinitions)
-                                    .Select(enemy => enemy.Id).Distinct().Count() == 4,
+                                    .Select(enemy => enemy.Id).Distinct().Count() == 6,
                                 "all authored enemy ids are stable and unique");
-                            Assert(RoomCatalog.Hub.EnemyDefinitions.Concat(RoomCatalog.Branch.EnemyDefinitions)
-                                    .All(enemy => enemy.HorizontalLeash == 120),
-                                "every authored enemy uses the frozen horizontal leash");
+                            Assert(RoomCatalog.Hub.EnemyDefinitions.Single(enemy => enemy.Id == "hub-armadillo-2").HorizontalLeash == 90 &&
+                                   RoomCatalog.Branch.EnemyDefinitions.Single(enemy => enemy.Id == "branch-snake-2").HorizontalLeash == 0,
+                                "new authored encounters preserve their room-geometry-specific leash contracts");
             });
             yield return new TestCase("wildlife lunge damage occurs once during active attack", () =>
             {
@@ -175,6 +194,343 @@ internal static class EnemiesTests
                             game.Update(default, 0f);
                             Assert(game.Health == 2, "invulnerability ignores repeated strikes during the window");
             });
+            yield return new TestCase("dynamite armadillo notice roll and recovery timings are deterministic", () =>
+            {
+                var game = new GameWorld();
+                            SetCurrentRoomEnemies(game, new EnemyDefinition(
+                                "test-armadillo",
+                                EnemyArchetype.DynamiteArmadillo,
+                                new Vector2(520, 480),
+                                120,
+                                1));
+                            SetProperty(game, nameof(GameWorld.PlayerPosition), new Vector2(640, 480));
+
+                            game.Update(default, 0f);
+                            Assert(game.Enemy.Archetype == EnemyArchetype.DynamiteArmadillo &&
+                                   game.Enemy.BehaviorState == EnemyBehaviorState.Notice &&
+                                   game.Enemy.AttackPhase == EnemyAttackPhase.None &&
+                                   game.Enemy.FacingDirection == 1,
+                                "the armadillo notices a same-lane player and freezes to face them");
+
+                            game.Update(default, GameWorld.EnemyNoticeDuration);
+                            Assert(game.Enemy.BehaviorState == EnemyBehaviorState.Attack &&
+                                   game.Enemy.AttackPhase == EnemyAttackPhase.Active,
+                                "the notice timer deterministically transitions into the roll");
+
+                            var rollStartX = game.Enemy.Position.X;
+                            game.Update(default, GameWorld.DynamiteArmadilloRollDuration / 2f);
+                            Assert(game.Enemy.AttackPhase == EnemyAttackPhase.Active &&
+                                   game.Enemy.Position.X > rollStartX,
+                                "the active roll advances along the ground lane before its fixed duration completes");
+
+                            game.Update(default, GameWorld.DynamiteArmadilloRollDuration / 2f + 0.01f);
+                            Assert(game.Enemy.BehaviorState == EnemyBehaviorState.Attack &&
+                                   game.Enemy.AttackPhase == EnemyAttackPhase.Recovery,
+                                "the armadillo enters recovery immediately after the roll window ends");
+
+                            game.Update(default, GameWorld.DynamiteArmadilloRecoveryDuration);
+                            Assert(game.Enemy.BehaviorState == EnemyBehaviorState.Patrol &&
+                                   game.Enemy.AttackPhase == EnemyAttackPhase.None,
+                                "the deterministic recovery window returns the armadillo to patrol");
+            });
+            yield return new TestCase("dynamite armadillo roll respects leash bounds and enters recovery on impact", () =>
+            {
+                var game = new GameWorld();
+                            SetCurrentRoomEnemies(game, new EnemyDefinition(
+                                "test-armadillo",
+                                EnemyArchetype.DynamiteArmadillo,
+                                new Vector2(520, 480),
+                                96,
+                                1));
+                            SetProperty(game, nameof(GameWorld.PlayerPosition), new Vector2(640, 480));
+
+                            game.Update(default, 0f);
+                            game.Update(default, GameWorld.EnemyNoticeDuration);
+                            game.Update(default, 0.3f);
+
+                            Assert(game.Enemy.AttackPhase == EnemyAttackPhase.Recovery,
+                                "reaching the leash edge interrupts the roll and starts recovery immediately");
+                            Assert(MathF.Abs(game.Enemy.Position.X - 616f) < 0.001f,
+                                "the armadillo clamps exactly to its authored leash boundary");
+                            Assert(game.Enemy.FacingDirection == -1,
+                                "the blocked roll flips facing for the next patrol leg");
+            });
+            yield return new TestCase("dynamite armadillo ignores bullets and only harms during roll", () =>
+            {
+                var game = new GameWorld();
+                            SetCurrentRoomEnemies(game, new EnemyDefinition(
+                                "test-armadillo",
+                                EnemyArchetype.DynamiteArmadillo,
+                                new Vector2(520, 480),
+                                120,
+                                1));
+
+                            var projectiles = GetField<List<ProjectileState>>(game, "projectiles");
+                            var immuneHit = new ProjectileState(new Vector2(520, 456), Vector2.Zero, 1);
+                            projectiles.Add(immuneHit);
+
+                            var startingHealth = game.Enemy.Health;
+                            game.Update(default, 0f);
+                            Assert(game.Projectiles.Count == 1 && game.Projectiles[0] == immuneHit,
+                                "player bullets pass through the armadillo without being consumed");
+                            Assert(game.Enemy.Health == startingHealth && game.Enemy.Alive,
+                                "armadillo overlaps do not deal projectile damage");
+
+                            SetProperty(game, nameof(GameWorld.PlayerPosition), game.Enemy.Position);
+                            SetProperty(game, nameof(GameWorld.Health), GameWorld.MaximumHealth);
+                            SetField(game, "invulnerabilityTimer", 0f);
+
+                            game.Update(default, 0f);
+                            Assert(game.Health == GameWorld.MaximumHealth,
+                                "patrol contact is harmless in the v1 hazard pass");
+
+                            game.Update(default, GameWorld.EnemyNoticeDuration);
+                            Assert(game.Health == GameWorld.MaximumHealth,
+                                "notice contact is also harmless before the roll starts");
+
+                            game.Update(default, 0f);
+                            Assert(game.Health == GameWorld.MaximumHealth - 1,
+                                "roll contact consumes exactly one health point");
+
+                            SetProperty(game, nameof(GameWorld.Enemy), game.Enemy with
+                            {
+                                BehaviorState = EnemyBehaviorState.Attack,
+                                AttackPhase = EnemyAttackPhase.Recovery,
+                                Position = game.PlayerPosition
+                            });
+                            SetField(game, "invulnerabilityTimer", 0f);
+                            game.Update(default, 0f);
+                            Assert(game.Health == GameWorld.MaximumHealth - 1,
+                                "recovery contact does not damage the player");
+            });
+            yield return new TestCase("sidewinder snake trigger timing and re-arm require a fresh radius entry", () =>
+            {
+                var game = new GameWorld();
+                            SetCurrentRoomEnemies(game, new EnemyDefinition(
+                                "test-snake",
+                                EnemyArchetype.SidewinderSnake,
+                                new Vector2(520, 480),
+                                0,
+                                1));
+                            SetProperty(game, nameof(GameWorld.PlayerPosition), new Vector2(620, 480));
+
+                            Assert(game.Enemy.BehaviorState == EnemyBehaviorState.Hidden,
+                                "sidewinders start hidden and inert");
+
+                            game.Update(default, 0f);
+                            Assert(game.Enemy.BehaviorState == EnemyBehaviorState.Attack &&
+                                   game.Enemy.AttackPhase == EnemyAttackPhase.Telegraph,
+                                "entering the trigger radius raises the snake immediately");
+
+                            game.Update(default, GameWorld.SidewinderSnakeRisingDuration);
+                            Assert(game.Enemy.AttackPhase == EnemyAttackPhase.Active,
+                                "the rising window deterministically transitions into the exposed window");
+
+                            game.Update(default, GameWorld.SidewinderSnakeExposedDuration);
+                            Assert(game.Enemy.AttackPhase == EnemyAttackPhase.Recovery,
+                                "the exposed window deterministically transitions into retreating");
+
+                            game.Update(default, GameWorld.SidewinderSnakeRetreatDuration);
+                            Assert(game.Enemy.BehaviorState == EnemyBehaviorState.Hidden,
+                                "retreating completes back into the hidden burrow state");
+
+                            game.Update(default, 0f);
+                            Assert(game.Enemy.BehaviorState == EnemyBehaviorState.Hidden,
+                                "remaining inside the trigger radius does not immediately re-arm the snake");
+
+                            SetProperty(game, nameof(GameWorld.PlayerPosition), new Vector2(700, 480));
+                            game.Update(default, 0f);
+                            Assert(game.Enemy.BehaviorState == EnemyBehaviorState.Hidden,
+                                "fully leaving the trigger radius preserves the hidden state");
+
+                            SetProperty(game, nameof(GameWorld.PlayerPosition), new Vector2(620, 480));
+                            game.Update(default, 0f);
+                            Assert(game.Enemy.BehaviorState == EnemyBehaviorState.Attack &&
+                                   game.Enemy.AttackPhase == EnemyAttackPhase.Telegraph,
+                                "a fresh trigger-radius entry re-arms and raises the snake again");
+            });
+            yield return new TestCase("sidewinder snake is defeated by a single shot while rising", () =>
+            {
+                var game = new GameWorld();
+                            SetCurrentRoomEnemies(game, new EnemyDefinition(
+                                "test-snake",
+                                EnemyArchetype.SidewinderSnake,
+                                new Vector2(520, 480),
+                                0,
+                                1));
+                            SetProperty(game, nameof(GameWorld.PlayerPosition), new Vector2(620, 480));
+
+                            game.Update(default, 0f);
+                            GetField<List<ProjectileState>>(game, "projectiles").Add(
+                                new ProjectileState(new Vector2(520, 456), Vector2.Zero, 1));
+
+                            game.Update(default, 0f);
+                            Assert(!game.Enemy.Alive &&
+                                   game.Enemy.BehaviorState == EnemyBehaviorState.Defeated &&
+                                   game.Enemy.Health == 0,
+                                "a rising snake has one health and is immediately defeated by any bullet");
+                            Assert(game.Projectiles.Count == 0,
+                                "the bullet is consumed by the first valid snake hit");
+            });
+            yield return new TestCase("sidewinder snake is defeated by a single shot while exposed", () =>
+            {
+                var game = new GameWorld();
+                            SetCurrentRoomEnemies(game, new EnemyDefinition(
+                                "test-snake",
+                                EnemyArchetype.SidewinderSnake,
+                                new Vector2(520, 480),
+                                0,
+                                1));
+                            SetProperty(game, nameof(GameWorld.Enemy), game.Enemy with
+                            {
+                                BehaviorState = EnemyBehaviorState.Attack,
+                                AttackPhase = EnemyAttackPhase.Active,
+                                Health = GameWorld.SidewinderSnakeHealth,
+                                Alive = true
+                            });
+                            GetField<List<ProjectileState>>(game, "projectiles").Add(
+                                new ProjectileState(new Vector2(520, 456), Vector2.Zero, 1));
+
+                            game.Update(default, 0f);
+                            Assert(!game.Enemy.Alive &&
+                                   game.Enemy.BehaviorState == EnemyBehaviorState.Defeated &&
+                                   game.Enemy.Health == 0,
+                                "an exposed snake also dies to a single player bullet");
+                            Assert(game.Projectiles.Count == 0,
+                                "the exposed-hit bullet is consumed on impact");
+            });
+            yield return new TestCase("sidewinder snake projectile hit gating excludes hidden and retreating phases", () =>
+            {
+                var runtime = CreateEnemyRuntime(new EnemyDefinition(
+                    "test-snake",
+                    EnemyArchetype.SidewinderSnake,
+                    new Vector2(520, 480),
+                    0,
+                    1));
+
+                            Assert(!CanBeHitByPlayerProjectile(runtime),
+                                "hidden snakes are excluded from projectile hit gating before any overlap checks");
+
+                            SetEnemyRuntimeState(runtime, EnemyBehaviorState.Attack, EnemyAttackPhase.Telegraph);
+                            Assert(CanBeHitByPlayerProjectile(runtime),
+                                "rising snakes become targetable for the one-shot kill window");
+
+                            SetEnemyRuntimeState(runtime, EnemyBehaviorState.Attack, EnemyAttackPhase.Active);
+                            Assert(CanBeHitByPlayerProjectile(runtime),
+                                "fully exposed snakes remain targetable until the retreat begins");
+
+                            SetEnemyRuntimeState(runtime, EnemyBehaviorState.Attack, EnemyAttackPhase.Recovery);
+                            Assert(!CanBeHitByPlayerProjectile(runtime),
+                                "retreating snakes drop out of projectile hit gating as soon as exposure ends");
+            });
+            yield return new TestCase("sidewinder snake stays untargetable while hidden and only deals contact damage while exposed", () =>
+            {
+                var game = new GameWorld();
+                            SetCurrentRoomEnemies(game, new EnemyDefinition(
+                                "test-snake",
+                                EnemyArchetype.SidewinderSnake,
+                                new Vector2(520, 480),
+                                0,
+                                1));
+
+                            var projectiles = GetField<List<ProjectileState>>(game, "projectiles");
+                            var hiddenShot = new ProjectileState(new Vector2(520, 456), Vector2.Zero, 1);
+                            projectiles.Add(hiddenShot);
+
+                            game.Update(default, 0f);
+                            Assert(game.Projectiles.Count == 1 && game.Projectiles[0] == hiddenShot,
+                                "hidden snakes do not consume or intercept bullets");
+                            Assert(game.Enemy.Health == GameWorld.SidewinderSnakeHealth &&
+                                   game.Enemy.BehaviorState == EnemyBehaviorState.Hidden,
+                                "hidden snakes remain untargetable and keep their full health");
+                            projectiles.Clear();
+
+                            SetProperty(game, nameof(GameWorld.PlayerPosition), game.Enemy.Position);
+                            SetProperty(game, nameof(GameWorld.Health), GameWorld.MaximumHealth);
+
+                            SetProperty(game, nameof(GameWorld.Enemy), game.Enemy with
+                            {
+                                BehaviorState = EnemyBehaviorState.Attack,
+                                AttackPhase = EnemyAttackPhase.Telegraph,
+                                Position = game.PlayerPosition,
+                                Health = GameWorld.SidewinderSnakeHealth,
+                                Alive = true
+                            });
+                            SetField(game, "invulnerabilityTimer", 0f);
+                            game.Update(default, 0f);
+                            Assert(game.Health == GameWorld.MaximumHealth,
+                                "rising contact is harmless until the snake is fully exposed");
+
+                            SetProperty(game, nameof(GameWorld.Enemy), game.Enemy with
+                            {
+                                BehaviorState = EnemyBehaviorState.Attack,
+                                AttackPhase = EnemyAttackPhase.Active,
+                                Position = game.PlayerPosition,
+                                Health = GameWorld.SidewinderSnakeHealth,
+                                Alive = true
+                            });
+                            SetField(game, "invulnerabilityTimer", 0f);
+                            game.Update(default, 0f);
+                            Assert(game.Health == GameWorld.MaximumHealth - 1,
+                                "exposed contact consumes exactly one health point");
+
+                            SetProperty(game, nameof(GameWorld.Enemy), game.Enemy with
+                            {
+                                BehaviorState = EnemyBehaviorState.Attack,
+                                AttackPhase = EnemyAttackPhase.Recovery,
+                                Position = game.PlayerPosition,
+                                Health = GameWorld.SidewinderSnakeHealth,
+                                Alive = true
+                            });
+                            SetField(game, "invulnerabilityTimer", 0f);
+                            game.Update(default, 0f);
+                            Assert(game.Health == GameWorld.MaximumHealth - 1,
+                                "retreating contact is harmless again once the exposed window ends");
+            });
         }
+    }
+
+    private static void SetCurrentRoomEnemies(GameWorld game, params EnemyDefinition[] definitions)
+    {
+        _ = game.Enemies;
+
+        var stateField = typeof(GameWorld).GetField(
+            "state",
+            BindingFlags.Instance | BindingFlags.NonPublic)!;
+        var state = stateField.GetValue(game)!;
+        var enemiesByRoomField = state.GetType().GetField(
+            "EnemiesByRoom",
+            BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public)!;
+        var byRoom = (IDictionary)enemiesByRoomField.GetValue(state)!;
+        var enemies = (IList)byRoom[game.Room]!;
+        enemies.Clear();
+        foreach (var definition in definitions)
+            enemies.Add(CreateEnemyRuntime(definition));
+    }
+
+    private static object CreateEnemyRuntime(EnemyDefinition definition) =>
+        EnemyRuntimeType.GetConstructors(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public)
+            .Single(ctor => ctor.GetParameters() is [{ ParameterType: var type }] && type == typeof(EnemyDefinition))
+            .Invoke([definition]);
+
+    private static bool CanBeHitByPlayerProjectile(object enemyRuntime) =>
+        (bool)CanBeHitByPlayerProjectileMethod.Invoke(null, [enemyRuntime])!;
+
+    private static void SetEnemyRuntimeState(
+        object enemyRuntime,
+        EnemyBehaviorState behaviorState,
+        EnemyAttackPhase attackPhase)
+    {
+        SetEnemyRuntimeProperty(enemyRuntime, "BehaviorState", behaviorState);
+        SetEnemyRuntimeProperty(enemyRuntime, "AttackPhase", attackPhase);
+        SetEnemyRuntimeProperty(enemyRuntime, "Alive", true);
+    }
+
+    private static void SetEnemyRuntimeProperty<T>(object enemyRuntime, string propertyName, T value)
+    {
+        var property = EnemyRuntimeType.GetProperty(
+            propertyName,
+            BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public)!;
+        property.SetValue(enemyRuntime, value);
     }
 }

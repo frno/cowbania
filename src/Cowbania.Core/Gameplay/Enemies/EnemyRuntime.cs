@@ -21,6 +21,7 @@ internal sealed class EnemyRuntime
     internal float StateElapsed { get; set; }
     internal float AttackElapsed { get; set; }
     internal bool DamageAppliedThisAttack { get; set; }
+    internal bool TriggerReady { get; set; }
 
     internal EnemyState Snapshot => new(
         Definition.Id,
@@ -46,20 +47,11 @@ internal sealed class EnemyRuntime
     private float AttackProgress => AttackPhase switch
     {
         EnemyAttackPhase.Telegraph => Normalize(
-            AttackElapsed,
-            Definition.Archetype == EnemyArchetype.Bandit
-                ? GameWorld.BanditTelegraphDuration
-                : GameWorld.WildlifeTelegraphDuration),
+            AttackElapsed, GetAttackPhaseDuration(EnemyAttackPhase.Telegraph)),
         EnemyAttackPhase.Active => Normalize(
-            AttackElapsed,
-            Definition.Archetype == EnemyArchetype.Bandit
-                ? GameWorld.BanditActiveDuration
-                : GameWorld.WildlifeLungeDuration),
+            AttackElapsed, GetAttackPhaseDuration(EnemyAttackPhase.Active)),
         EnemyAttackPhase.Recovery => Normalize(
-            AttackElapsed,
-            Definition.Archetype == EnemyArchetype.Bandit
-                ? GameWorld.BanditRecoveryDuration
-                : GameWorld.WildlifeRecoveryDuration),
+            AttackElapsed, GetAttackPhaseDuration(EnemyAttackPhase.Recovery)),
         _ => 0f
     };
 
@@ -78,7 +70,7 @@ internal sealed class EnemyRuntime
 
     internal void Damage(int damage)
     {
-        if (!Alive)
+        if (!Alive || damage <= 0 || Definition.Archetype == EnemyArchetype.DynamiteArmadillo)
             return;
 
         Health -= damage;
@@ -104,6 +96,7 @@ internal sealed class EnemyRuntime
         StateElapsed = 0;
         AttackElapsed = 0;
         DamageAppliedThisAttack = false;
+        TriggerReady = BehaviorState == EnemyBehaviorState.Hidden;
     }
 
     private void Reset()
@@ -113,15 +106,36 @@ internal sealed class EnemyRuntime
         FacingDirection = Definition.InitialFacingDirection is -1 or 1
             ? Definition.InitialFacingDirection
             : 1;
-        Health = GameWorld.EnemyMaximumHealth;
+        Health = Definition.Archetype == EnemyArchetype.SidewinderSnake
+            ? GameWorld.SidewinderSnakeHealth
+            : GameWorld.EnemyMaximumHealth;
         Alive = true;
-        BehaviorState = EnemyBehaviorState.Patrol;
+        BehaviorState = Definition.Archetype == EnemyArchetype.SidewinderSnake
+            ? EnemyBehaviorState.Hidden
+            : EnemyBehaviorState.Patrol;
         AttackPhase = EnemyAttackPhase.None;
         StateElapsed = 0;
         AttackElapsed = 0;
         DamageAppliedThisAttack = false;
+        TriggerReady = true;
     }
 
     private static float Normalize(float elapsed, float duration) =>
         duration <= 0 ? 1f : Math.Clamp(elapsed / duration, 0f, 1f);
+
+    private float GetAttackPhaseDuration(EnemyAttackPhase phase) => (Definition.Archetype, phase) switch
+    {
+        (EnemyArchetype.Bandit, EnemyAttackPhase.Telegraph) => GameWorld.BanditTelegraphDuration,
+        (EnemyArchetype.Bandit, EnemyAttackPhase.Active) => GameWorld.BanditActiveDuration,
+        (EnemyArchetype.Bandit, EnemyAttackPhase.Recovery) => GameWorld.BanditRecoveryDuration,
+        (EnemyArchetype.Wildlife, EnemyAttackPhase.Telegraph) => GameWorld.WildlifeTelegraphDuration,
+        (EnemyArchetype.Wildlife, EnemyAttackPhase.Active) => GameWorld.WildlifeLungeDuration,
+        (EnemyArchetype.Wildlife, EnemyAttackPhase.Recovery) => GameWorld.WildlifeRecoveryDuration,
+        (EnemyArchetype.DynamiteArmadillo, EnemyAttackPhase.Active) => GameWorld.DynamiteArmadilloRollDuration,
+        (EnemyArchetype.DynamiteArmadillo, EnemyAttackPhase.Recovery) => GameWorld.DynamiteArmadilloRecoveryDuration,
+        (EnemyArchetype.SidewinderSnake, EnemyAttackPhase.Telegraph) => GameWorld.SidewinderSnakeRisingDuration,
+        (EnemyArchetype.SidewinderSnake, EnemyAttackPhase.Active) => GameWorld.SidewinderSnakeExposedDuration,
+        (EnemyArchetype.SidewinderSnake, EnemyAttackPhase.Recovery) => GameWorld.SidewinderSnakeRetreatDuration,
+        _ => 0f
+    };
 }

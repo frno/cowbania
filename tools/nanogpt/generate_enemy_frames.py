@@ -1,20 +1,19 @@
-"""Generate the 8 base pose PNGs for Cowbania's enemy sprites.
+"""Generate the base-pose PNGs for Cowbania's 16x16 enemy sprites.
 
 Produces one AI image per (enemy, state) into `tools/nanogpt/out/`,
-which `pixelate_enemy.py` then reads to build the final 24 game frames.
+which `pixelate_enemy.py` then reads to build the final game frames.
 
-Two enemy types, four base poses each (patrol / notice / attack-or-lunge
-/ defeated). The patrol pose for each enemy is generated first without
-a reference (it locks that enemy's identity); the other three poses for
-that enemy chain `--reference` off the patrol image so hat / body /
-palette / proportions stay consistent across the sheet.
+The neutral/hero pose for each enemy is generated first without a
+reference (it locks that enemy's identity); the remaining poses for that
+enemy chain `--reference` off that first image so silhouette / palette /
+proportions stay consistent across the sheet.
 
 Model: `nano-banana-2` — same choice as the player pipeline, for the
 same reason: it preserves character identity across independent
 generations off a reference image. See lesson 8 in the SKILL.md.
 
 Enemy design intent (matches `Assets/Art/Frontier/manifest.md`
-readability rules and existing procedural asset silhouettes):
+readability rules and existing Frontier silhouettes):
 
 * Bandit — upright human OUTLAW, clearly NOT the cowboy player: no
   wide-brim hat, no long duster, no red bandana. Uses a low bowler /
@@ -27,6 +26,13 @@ readability rules and existing procedural asset silhouettes):
   wolf silhouette. Body clearly parallel to the ground, four legs, tail
   visible, long snout. Rust / timber body colors so it reads as "beast"
   vs the human bandit's cooler palette.
+* Armadillo — LOW ROUNDED SHELL hazard. Wider/lower than wildlife, dark
+  plum outline, rust/ochre shell, visible telegraph-gold fuse ember on
+  top. Compact crawl/roll silhouette, never reads as flat debris.
+* Snake — STATIONARY AMBUSH hazard. Hidden state is a dangerous dirt
+  mound/crack marker with NO visible body. Visible states are upright
+  cobra-like sidewinder S-curve silhouettes with rust/bone/sage accents
+  and a telegraph-gold eye / rattle flash.
 
 Prompt discipline learned from the cowboy work (all still applies):
 
@@ -36,12 +42,14 @@ Prompt discipline learned from the cowboy work (all still applies):
 * Explicit compact composition — at 16x16 the enemy must fit in a very
   tight silhouette; the source prompt is worded to keep arms/legs close
   to the body so nothing clips after downscale.
-* Right-facing side profile only (the renderer mirrors for left).
+* Right-facing side profile only (the renderer mirrors for left). The
+  only exception is the snake's hidden mound state, where the snake body
+  is intentionally not visible.
 
 Usage:
-    python tools/nanogpt/generate_enemy_frames.py           # all 8
+    python tools/nanogpt/generate_enemy_frames.py           # all enemies
     python tools/nanogpt/generate_enemy_frames.py --enemy bandit
-    python tools/nanogpt/generate_enemy_frames.py --state attack --enemy bandit
+    python tools/nanogpt/generate_enemy_frames.py --state roll --enemy armadillo
     python tools/nanogpt/generate_enemy_frames.py --dry-run
 """
 
@@ -72,7 +80,7 @@ STYLE = """STYLE (critical):
 - Chunky retro 16-bit game enemy sprite (SNES / Sega Genesis era).
 - Flat solid color fills only. Absolutely NO gradients. NO soft shading. NO ambient occlusion. NO anti-aliasing. NO dithering.
 - Hard clean 1-pixel-wide dark outlines around every shape.
-- 4 to 6 solid color regions total (small sprite — keep palette minimal).
+- 4 solid color regions total, at most 5 including a tiny accent (small sprite — keep palette minimal).
 - Frontier palette family: dark plum outline, rust, warm ochre, bone, timber. Muted, earthy, Western dust-gothic tone.
 - Deliberate blocky pixel art, NOT smooth digital painting.
 - Right-facing side profile — the enemy is turned to the viewer's RIGHT."""
@@ -185,21 +193,126 @@ WILDLIFE_POSES: dict[str, str] = {
 
 
 # ---------------------------------------------------------------------------
+# Dynamite armadillo — rolling ground hazard
+# ---------------------------------------------------------------------------
+
+ARMADILLO_CHARACTER = """CHARACTER (armadillo — explosive ground hazard):
+- Very LOW, WIDE, ROUNDED ARMORED SHELL silhouette. Wider and lower than the wildlife quadruped.
+- Compact desert armadillo body with a domed segmented shell and tiny tucked legs.
+- Dark plum outline, RUST and warm OCHRE shell bands, a small BONE snout if visible.
+- A short fuse stub on TOP of the shell with a bright telegraph-GOLD ember. Ember is tiny but clearly visible.
+- Shell is the dominant read; legs are tiny supporting shapes only.
+- Chunky readable hazard silhouette, NOT cute, NOT fluffy, NOT mammalian pet proportions.
+- Must read as a living armored creature, NOT a loose tumbleweed, NOT a rock, NOT debris.
+- Right-facing side profile: head/front on the RIGHT side of the image."""
+
+ARMADILLO_POSES: dict[str, str] = {
+    "patrol": (
+        "PATROL / CRAWL pose — armadillo creeping along the ground on tiny legs. "
+        "Body remains LOW and rounded, shell dominant, head slightly forward. "
+        "Fuse ember on top is visible but calm. Silhouette is compact, wider than tall."
+    ),
+    "notice": (
+        "NOTICE / SPOTTED-THE-PLAYER pose — the armadillo has stopped and turned its "
+        "attention forward-right. Keep a CLEAR RIGHT-FACING SIDE PROFILE — do NOT face the camera "
+        "front-on or 3/4. Head slightly raised, front planted, shell still low and compact. "
+        "The top fuse has JUST CAUGHT with a brighter telegraph-GOLD ember. This is a tense "
+        "warning pose before the charge, not yet rolling."
+    ),
+    "roll": (
+        "ROLL / CHARGE pose — fast compact rolling armadillo silhouette, shell curled tighter "
+        "into a dense rounded form with head tucked just enough to imply motion. IMPORTANT: "
+        "do NOT depict the body lying flat or stretched parallel to the ground. The silhouette "
+        "must still read as a compact rounded creature charging forward-right, with a visible "
+        "fuse ember on top trailing slightly back. Low to the ground, dynamic, hazard-like."
+    ),
+}
+
+
+# ---------------------------------------------------------------------------
+# Sidewinder snake — ambush hazard
+# ---------------------------------------------------------------------------
+
+SNAKE_CHARACTER = """CHARACTER (sidewinder snake — ambush hazard):
+- Slim desert sidewinder / cobra-like snake with an upright S-curve when exposed.
+- Rust, bone, and muted sage body accents. Dark plum outline. Telegraph-GOLD eye or tiny rattle flash.
+- Head wedge-shaped, neck capable of a hood-like widened strike profile, body coils tight and readable.
+- Silhouette must read as a dangerous upright strike-ready snake, NOT a worm, NOT a decorative rope.
+- When visible, keep the body compact and vertically readable for 16x16.
+- Right-facing side profile: head on the RIGHT side of the image, body/coils trailing left/down."""
+
+SNAKE_POSES: dict[str, str] = {
+    "hidden": (
+        "HIDDEN AMBUSH MARKER pose — only a small foreground dirt crack / dirt mound hazard marker is visible. "
+        "The snake body is COMPLETELY NOT VISIBLE. No head, no tail, no coils above ground. "
+        "The mound/crack must still read as an ACTIVE DANGEROUS foreground hazard marker, not ordinary decoration. "
+        "Use a compact rust/timber dirt mound with a sharp crack opening and a tiny telegraph-GOLD glint inside the crack."
+    ),
+    "rise": (
+        "RISE / EMERGING pose — the snake is pushing up from a dirt crack at ground level. "
+        "Lower body still partly hidden by the dirt mound, upper body rising into an S-curve, "
+        "head angled forward-right. This is the emergence phase, not yet fully exposed."
+    ),
+    "exposed": (
+        "EXPOSED / STRIKE-READY pose — the snake is fully up in a compact upright S-curve / cobra-like silhouette. "
+        "Head raised high, chest/neck widened slightly, coils rooted near the ground, rattle or tail hint behind. "
+        "A tiny telegraph-GOLD eye or rattle flash is visible. This is the active attack-ready silhouette."
+    ),
+    "retreat": (
+        "RETREAT pose — the snake is dropping back down into the dirt crack. "
+        "Upper body lowered, head descending, much of the body already disappearing into the mound. "
+        "Still clearly the same snake, but less exposed than the rise/exposed poses."
+    ),
+    "defeated": (
+        "DEFEATED / SHOT pose — the snake has been killed and lies collapsed on the ground. "
+        "Body slack and low, head down, curve broken into a limp fallen shape. "
+        "Silhouette stays readable and compact, wider than tall, clearly no longer poised to strike."
+    ),
+}
+
+
+ENEMIES: dict[str, dict[str, object]] = {
+    "bandit": {
+        "header": "A single BANDIT OUTLAW enemy character, isolated single subject centered in frame.",
+        "character": BANDIT_CHARACTER,
+        "poses": BANDIT_POSES,
+        "reference_state": "patrol",
+    },
+    "wildlife": {
+        "header": "A single WILD PREDATOR animal, isolated single subject centered in frame.",
+        "character": WILDLIFE_CHARACTER,
+        "poses": WILDLIFE_POSES,
+        "reference_state": "patrol",
+    },
+    "armadillo": {
+        "header": "A single DYNAMITE ARMADILLO enemy creature, isolated single subject centered in frame.",
+        "character": ARMADILLO_CHARACTER,
+        "poses": ARMADILLO_POSES,
+        "reference_state": "patrol",
+    },
+    "snake": {
+        "header": "A single SIDEWINDER SNAKE ambush hazard, isolated single subject centered in frame.",
+        "character": SNAKE_CHARACTER,
+        "poses": SNAKE_POSES,
+        "reference_state": "exposed",
+    },
+}
+
+
+# ---------------------------------------------------------------------------
 # Prompt assembly
 # ---------------------------------------------------------------------------
 
 
 def _build_prompt(enemy: str, state: str) -> str:
-    if enemy == "bandit":
-        character = BANDIT_CHARACTER
-        pose = BANDIT_POSES[state]
-        header = "A single BANDIT OUTLAW enemy character, isolated single subject centered in frame."
-    elif enemy == "wildlife":
-        character = WILDLIFE_CHARACTER
-        pose = WILDLIFE_POSES[state]
-        header = "A single WILD PREDATOR animal, isolated single subject centered in frame."
-    else:
+    spec = ENEMIES.get(enemy)
+    if spec is None:
         raise ValueError(f"Unknown enemy: {enemy}")
+    character = str(spec["character"])
+    poses = spec["poses"]
+    assert isinstance(poses, dict)
+    pose = poses[state]
+    header = str(spec["header"])
     return (
         f"{header}\n\n"
         f"POSE: {pose}\n\n"
@@ -234,20 +347,22 @@ def _generate(enemy: str, state: str, reference: Path | None) -> Path:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--enemy", choices=("bandit", "wildlife"), default=None)
+    parser.add_argument("--enemy", choices=tuple(ENEMIES), default=None)
     parser.add_argument("--state", default=None)
     parser.add_argument("--no-reference", action="store_true")
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
 
-    enemies = [args.enemy] if args.enemy else ["bandit", "wildlife"]
-    states_all = ["patrol", "notice", "attack", "defeated"]
+    enemies = [args.enemy] if args.enemy else list(ENEMIES)
     for enemy in enemies:
-        if enemy == "wildlife":
-            states_all_e = ["patrol", "notice", "lunge", "defeated"]
-        else:
-            states_all_e = states_all
+        spec = ENEMIES[enemy]
+        poses = spec["poses"]
+        assert isinstance(poses, dict)
+        states_all_e = list(poses)
         states = [args.state] if args.state else states_all_e
+        for state in states:
+            if state not in poses:
+                raise SystemExit(f"Unknown state for {enemy}: {state}")
 
         if args.dry_run:
             for s in states:
@@ -257,17 +372,19 @@ def main() -> None:
                 print(_build_prompt(enemy, s))
             continue
 
-        # patrol first if in the set (locks identity), rest chain off patrol
+        # Locked reference first (patrol/exposed depending on enemy), then chain
+        # the rest off that reference image to preserve identity.
         order = states[:]
-        if "patrol" in order:
-            order.remove("patrol")
-            order.insert(0, "patrol")
+        reference_state = str(spec["reference_state"])
+        if reference_state in order:
+            order.remove(reference_state)
+            order.insert(0, reference_state)
 
         ref: Path | None = None
         for s in order:
-            use_ref = None if (args.no_reference or s == "patrol") else ref
+            use_ref = None if (args.no_reference or s == reference_state) else ref
             path = _generate(enemy, s, use_ref)
-            if s == "patrol":
+            if s == reference_state:
                 ref = path
 
 

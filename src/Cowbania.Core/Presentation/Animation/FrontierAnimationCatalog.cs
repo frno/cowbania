@@ -18,6 +18,12 @@ public static class FrontierAnimationCatalog
     public static AnimationActorMetadata WildlifeMetadata { get; } =
         new(new Vector2(8, 13), new Vector2(14, 9));
 
+    public static AnimationActorMetadata ArmadilloMetadata { get; } =
+        new(new Vector2(8, 13), new Vector2(8, 8));
+
+    public static AnimationActorMetadata SnakeMetadata { get; } =
+        new(new Vector2(8, 13), new Vector2(8, 8));
+
     public static AnimationActorMetadata PickupMetadata { get; } =
         new(new Vector2(8, 13), new Vector2(8, 8));
 
@@ -65,6 +71,43 @@ public static class FrontierAnimationCatalog
                 Clip("wildlife_defeated", "Frontier/Wildlife", "defeated", 2, 6f, AnimationPlaybackMode.OneShot)
         }.ToImmutableDictionary();
 
+    public static ImmutableDictionary<PresentationAnimationState, AnimationClip> ArmadilloClips { get; } =
+        new Dictionary<PresentationAnimationState, AnimationClip>
+        {
+            [PresentationAnimationState.ArmadilloPatrol] =
+                Clip("armadillo_patrol", "Frontier/Armadillo", "patrol", 4, 6f),
+            [PresentationAnimationState.ArmadilloNotice] =
+                Clip("armadillo_notice", "Frontier/Armadillo", "notice", 2, 8f, AnimationPlaybackMode.OneShot),
+            [PresentationAnimationState.ArmadilloRoll] =
+                Clip(
+                    "armadillo_roll", "Frontier/Armadillo", "roll", 4,
+                    4f / GameWorld.DynamiteArmadilloRollDuration,
+                    AnimationPlaybackMode.OneShot)
+        }.ToImmutableDictionary();
+
+    public static ImmutableDictionary<PresentationAnimationState, AnimationClip> SnakeClips { get; } =
+        new Dictionary<PresentationAnimationState, AnimationClip>
+        {
+            [PresentationAnimationState.SnakeHidden] =
+                Clip("snake_hidden", "Frontier/Snake", "hidden", 2, 4f),
+            [PresentationAnimationState.SnakeRise] =
+                Clip(
+                    "snake_rise", "Frontier/Snake", "rise", 2, 2f / GameWorld.SidewinderSnakeRisingDuration,
+                    AnimationPlaybackMode.OneShot),
+            [PresentationAnimationState.SnakeExposed] =
+                Clip(
+                    "snake_exposed", "Frontier/Snake", "exposed", 4,
+                    4f / GameWorld.SidewinderSnakeExposedDuration,
+                    AnimationPlaybackMode.OneShot),
+            [PresentationAnimationState.SnakeRetreat] =
+                Clip(
+                    "snake_retreat", "Frontier/Snake", "retreat", 2,
+                    2f / GameWorld.SidewinderSnakeRetreatDuration,
+                    AnimationPlaybackMode.OneShot),
+            [PresentationAnimationState.EnemyDefeated] =
+                Clip("snake_defeated", "Frontier/Snake", "defeated", 2, 6f, AnimationPlaybackMode.OneShot)
+        }.ToImmutableDictionary();
+
     public static ImmutableDictionary<PickupType, AnimationClip> PickupClips { get; } =
         new Dictionary<PickupType, AnimationClip>
         {
@@ -87,15 +130,27 @@ public static class FrontierAnimationCatalog
         PresentationAnimationState.WildlifePatrol or
         PresentationAnimationState.WildlifeNotice or
         PresentationAnimationState.WildlifeLunge => WildlifeClips[state],
+        PresentationAnimationState.ArmadilloPatrol or
+        PresentationAnimationState.ArmadilloNotice or
+        PresentationAnimationState.ArmadilloRoll => ArmadilloClips[state],
+        PresentationAnimationState.SnakeHidden or
+        PresentationAnimationState.SnakeRise or
+        PresentationAnimationState.SnakeExposed or
+        PresentationAnimationState.SnakeRetreat => SnakeClips[state],
         _ => PlayerClips[state]
     };
 
     public static AnimationClip ForEnemy(EnemyState enemy)
     {
         var state = EnemyPresentationStateSelector.Select(enemy).AnimationState;
-        return enemy.Archetype == EnemyArchetype.Bandit
-            ? BanditClips[state]
-            : WildlifeClips[state];
+        return enemy.Archetype switch
+        {
+            EnemyArchetype.Bandit => BanditClips[state],
+            EnemyArchetype.Wildlife => WildlifeClips[state],
+            EnemyArchetype.DynamiteArmadillo => ArmadilloClips[state],
+            EnemyArchetype.SidewinderSnake => SnakeClips[state],
+            _ => throw new ArgumentOutOfRangeException(nameof(enemy))
+        };
     }
 
     public static AnimationClip ForPickup(PickupType type) => PickupClips[type];

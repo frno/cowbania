@@ -37,10 +37,21 @@ public sealed class GameWorld
     public const float WildlifeLungeDuration = 0.22f;
     public const float WildlifeLungeSpeed = 480f;
     public const float WildlifeRecoveryDuration = 0.55f;
+    public const float DynamiteArmadilloNoticeHorizontalRange = 160f;
+    public const float DynamiteArmadilloNoticeVerticalRange = 32f;
+    public const float DynamiteArmadilloRollDuration = 0.55f;
+    public const float DynamiteArmadilloRecoveryDuration = 0.55f;
+    public const float SidewinderSnakeTriggerHorizontalRange = 128f;
+    public const float SidewinderSnakeTriggerVerticalRange = 40f;
+    public const float SidewinderSnakeRisingDuration = 0.25f;
+    public const float SidewinderSnakeExposedDuration = 0.80f;
+    public const float SidewinderSnakeRetreatDuration = 0.30f;
+    public const int SidewinderSnakeHealth = 1;
     internal const float PlayerHalfWidth = PlayerBodyWidth / 2f;
     internal const float EnemyPatrolSpeed = 45f;
     internal const float EnemyChaseSpeed = 90f;
     internal const float BanditActiveDuration = 0.05f;
+    internal const float DynamiteArmadilloRollSpeed = 420f;
     public static readonly Vector2 PlayerMuzzleOffset = new(0, -24);
 
     private readonly GameWorldState state = new();
