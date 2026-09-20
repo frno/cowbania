@@ -1,6 +1,7 @@
 # First Playable Slice QA Checklist
 
-This checklist is intentionally separate from gameplay code and is usable when Unity is unavailable.
+This checklist is intentionally separate from gameplay code and applies to the .NET 10 MonoGame
+DesktopGL build. Unity is not part of this project or its validation toolchain.
 
 ## Automated smoke coverage
 

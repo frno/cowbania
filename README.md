@@ -2,6 +2,10 @@
 
 A MonoGame/.NET 10 2D C# desktop keyboard-only metroidvania prototype with a cowboy/outlaw theme.
 
+> **Engine:** This is a MonoGame DesktopGL project, not a Unity project. `Assets/` is the runtime
+> asset root copied by `src/Cowbania.Host/Cowbania.Host.csproj`; the repository does not use Unity
+> scenes, prefabs, Animator controllers, or editor-generated metadata.
+
 ## Prototype scope
 
 The player is an outlaw escaping through a dangerous interconnected area. The prototype is a side-view pixel-art slice with crisp nearest-neighbor rendering. Release 6 uses the original Frontier visual pack, with 16x16 actor, pickup, terrain, effect, and HUD art plus larger landmark and background assets.

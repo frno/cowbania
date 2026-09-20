@@ -8,9 +8,8 @@ reference (it locks that enemy's identity); the remaining poses for that
 enemy chain `--reference` off that first image so silhouette / palette /
 proportions stay consistent across the sheet.
 
-Model: `nano-banana-2` — same choice as the player pipeline, for the
-same reason: it preserves character identity across independent
-generations off a reference image. See lesson 8 in the SKILL.md.
+Model: `nano-banana-2` — same choice as the player pipeline because it
+preserves character identity across generations from a reference image.
 
 Enemy design intent (matches `Assets/Art/Frontier/manifest.md`
 readability rules and existing Frontier silhouettes):

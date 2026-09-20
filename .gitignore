@@ -1,48 +1,16 @@
-# Unity generated folders
-[Ll]ibrary/
-[Tt]emp/
+# .NET and editor output
 [Oo]bj/
 [Bb]uild/
 [Bb]uilds/
-[Ll]ogs/
-[Mm]emoryCaptures/
-UserSettings/
-*.pidb
-*.booproj
 *.user
-*.userprefs
 *.csproj.user
-*.unityproj
 *.suo
 *.tmp
-*.pidb
-*.user
-*.userprefs
 *.DS_Store
 Thumbs.db
 
-# Squad: ignore runtime state (logs, inbox, sessions)
-# Note: .squad/casting/* is identity and MUST be committed to main, not ignored
-.squad/orchestration-log/
-.squad/log/
-.squad/decisions/inbox/
-.squad/sessions/
-.squad/.scratch/
-.squad/.cache/
-# Squad: SubSquad activation file (local to this machine)
-.squad-workstream
-/src/Cowbania.Host/bin
-/tests/Cowbania.Core.Tests/bin
-/tests/Cowbania.Host.Tests/bin
-/src/Cowbania.Core/bin
-
 # .NET build output
 **/bin/
-
-# Machine-local and generated configuration
-.copilot/mcp-config.json
-.squad/.first-run
-.github/agents/*.local-backup
 
 # Host runtime logs
 Cowbania.Host.log

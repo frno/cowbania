@@ -195,7 +195,8 @@ def _submit(prompt: str, model: str, *, duration_seconds: float) -> str:
     worth of padding containing multiple unrelated candidate variations
     scattered across a long clip (observed: 3 separate "damage" hits, or
     ~8 scattered reload clicks, in one 5s response) which a simple
-    first-loud-window trim then latches onto the wrong one. See SKILL.md.
+    first-loud-window trim then latches onto the wrong one. See
+    docs/pipelines/NANOGPT_AUDIO.md.
     """
     body = {
         "model": model,
@@ -290,7 +291,8 @@ def _trim_silence(
 ) -> None:
     """Find the real sound region by peak-amplitude envelope (not ffmpeg's
     stateful silenceremove, which mis-triggered on models that prepend a
-    quiet room-tone lead-in before the actual sound -- see SKILL.md lesson).
+    quiet room-tone lead-in before the actual sound; see
+    docs/pipelines/NANOGPT_AUDIO.md).
 
     - start: first window whose peak exceeds start_threshold_db (loud enough
       to be unambiguously "the sound", skipping quiet lead-in noise).
