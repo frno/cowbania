@@ -23,7 +23,7 @@ work. Keep it until every item is complete. Check an item only after its accepta
 - [x] Add one real CI workflow that restores, builds, and runs both executable test suites.
 - [x] Put the canonical local build/test sequence in `AGENTS.md`.
 - [x] Preserve specialized NanoGPT knowledge as opt-in docs instead of auto-discovered Squad skills.
-- [ ] Run one manual desktop smoke test on Windows after the current unrelated gameplay work is
+- [x] Run one manual desktop smoke test on Windows after the current unrelated gameplay work is
   stable. Acceptance: launch the Host and exercise movement, combat, a room transition, pause, and
   audio without a stall; record the result in the relevant QA checklist.
 
