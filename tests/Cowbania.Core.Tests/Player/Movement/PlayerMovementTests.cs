@@ -55,6 +55,22 @@ internal static class PlayerMovementTests
                             Assert(paused.LastJumpRequestOutcome == JumpRequestOutcome.RejectedPaused,
                                 "jump pressed while pausing records a paused rejection");
             });
+            yield return new TestCase("falling below a canyon restores a safe authored spawn", () =>
+            {
+                var game = new GameWorld();
+                            SetProperty(game, nameof(GameWorld.PlayerPosition),
+                                new Vector2(1300, RoomCatalog.Hub.Bounds.Bottom + GameWorld.PlayerBodyHeight + 1));
+                            SetProperty(game, nameof(GameWorld.Health), GameWorld.MaximumHealth);
+
+                            game.Update(default, 0f);
+
+                            Assert(game.Health == GameWorld.MaximumHealth - 1,
+                                "a missed canyon jump costs one health");
+                            Assert(game.PlayerPosition == RoomCatalog.Hub.Spawn && game.PlayerVelocity == Vector2.Zero,
+                                "fall recovery returns the player to a supported room spawn without residual velocity");
+                            Assert(game.Projectiles.Count == 0,
+                                "fall recovery clears transient projectiles before play resumes");
+            });
             yield return new TestCase("gravity returns the player to a valid support surface", () =>
             {
                 var game = new GameWorld();

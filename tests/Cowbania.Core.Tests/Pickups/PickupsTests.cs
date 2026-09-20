@@ -91,7 +91,7 @@ internal static class PickupsTests
                             SetProperty(game, nameof(GameWorld.PlayerPosition), RoomCatalog.Hub.Checkpoint);
                             InvokePrivate(game, "Respawn");
 
-                            Assert(game.Currency == 2 && game.ReserveAmmo == 1 && game.CollectedPickupCount == 4,
+                            Assert(game.Currency == 5 && game.ReserveAmmo == 3 && game.CollectedPickupCount == 9,
                                 "death preserves collected pickups and economy counters");
                             Assert(game.ShortcutUnlocked && game.CheckpointRoom == RoomCatalog.Hub.Id &&
                                    game.CheckpointPosition == RoomCatalog.Hub.Checkpoint,

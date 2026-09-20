@@ -52,12 +52,12 @@ internal static class WorldTests
                                 }
                             }
             });
-            yield return new TestCase("stage presentation keeps RoomCatalog metadata unchanged", () =>
+            yield return new TestCase("expanded frontier keeps its authored progression anchors", () =>
             {
                 var expected = new[]
                             {
-                                (RoomCatalog.Hub, 0, "Hub", new RoomRect(0, 0, 1600, 576), new Vector2(80, 480), new Vector2(80, 480), new Vector2(1440, 480)),
-                                (RoomCatalog.Branch, 1, "Branch", new RoomRect(0, 0, 1600, 576), new Vector2(40, 480), new Vector2(760, 480), new Vector2(1440, 480))
+                                (RoomCatalog.Hub, 0, "Dustwind Crossing", new RoomRect(0, 0, 5200, 576), new Vector2(80, 480), new Vector2(80, 480), new Vector2(4960, 480)),
+                                (RoomCatalog.Branch, 1, "Rattlesnake Run", new RoomRect(0, 0, 6400, 576), new Vector2(40, 480), new Vector2(2784, 360), new Vector2(6200, 480))
                             };
 
                             foreach (var (room, id, name, bounds, spawn, checkpoint, shortcut) in expected)
@@ -68,24 +68,77 @@ internal static class WorldTests
                                     $"{name} interaction anchors remain authored");
                             }
 
-                            Assert(RoomCatalog.Hub.EnemySpawns.SequenceEqual(
-                                    new[] { new Vector2(520, 480), new Vector2(1040, 480), new Vector2(760, 320) }),
-                                "hub enemy placements remain authored");
-                            Assert(RoomCatalog.Branch.EnemySpawns.SequenceEqual(
-                                    new[] { new Vector2(520, 480), new Vector2(1120, 480), new Vector2(880, 290) }),
-                                "branch enemy placements remain authored");
-                            Assert(RoomCatalog.Hub.PickupDefinitions.SequenceEqual(new[]
+                            Assert(RoomCatalog.Hub.Solids.Length == 14 && RoomCatalog.Branch.Solids.Length == 18,
+                                "the expanded rooms retain all authored ground and platform surfaces");
+                            Assert(RoomCatalog.Hub.EnemyDefinitions.Length == 9 && RoomCatalog.Branch.EnemyDefinitions.Length == 13,
+                                "the expanded rooms retain their complete encounter sequences");
+                            Assert(RoomCatalog.Hub.Pickups.Length == 5 && RoomCatalog.Branch.Pickups.Length == 7,
+                                "the expanded rooms retain their optional reward trail");
+            });
+            yield return new TestCase("expanded level content stays supported unique and traversable", () =>
+            {
+                var rooms = new[] { RoomCatalog.Hub, RoomCatalog.Branch };
+                            Assert(rooms.Sum(room => room.Bounds.Width) >= 11000,
+                                "the connected frontier spans at least eleven thousand horizontal units");
+
+                            var enemyIds = rooms.SelectMany(room => room.EnemyDefinitions).Select(enemy => enemy.Id).ToArray();
+                            var pickupIds = rooms.SelectMany(room => room.Pickups).Select(pickup => pickup.Id).ToArray();
+                            Assert(enemyIds.Distinct(StringComparer.Ordinal).Count() == enemyIds.Length,
+                                "every expanded encounter has a globally unique stable id");
+                            Assert(pickupIds.Distinct(StringComparer.Ordinal).Count() == pickupIds.Length,
+                                "every expanded reward has a globally unique stable id");
+
+                            foreach (var room in rooms)
+                            {
+                                var supportPoints = room.EnemySpawns
+                                    .Concat(new[] { room.Spawn, room.Checkpoint, room.Shortcut });
+                                foreach (var point in supportPoints)
+                                    Assert(room.Solids.Any(solid => point.Y == solid.Y && point.X >= solid.X && point.X <= solid.Right),
+                                        $"{room.Name} anchor {point} stands on authored collision geometry");
+
+                                foreach (var platform in room.Solids.Where(solid => solid.Height == 24))
                                 {
-                                    new PickupDefinition("hub-currency", new Vector2(1120, 448), PickupType.Currency),
-                                    new PickupDefinition("hub-health", new Vector2(1280, 448), PickupType.Health)
-                                }),
-                                "hub pickup placements remain authored");
-                            Assert(RoomCatalog.Branch.PickupDefinitions.SequenceEqual(new[]
-                                {
-                                    new PickupDefinition("branch-reserve-ammo", new Vector2(760, 448), PickupType.ReserveAmmo),
-                                    new PickupDefinition("branch-currency", new Vector2(1440, 448), PickupType.Currency)
-                                }),
-                                "branch pickup placements remain authored");
+                                    var hasApproach = room.Solids.Any(support =>
+                                        support != platform && MathF.Abs(support.Y - platform.Y) <= 152 &&
+                                        support.X <= platform.Right + 160 && support.Right >= platform.X - 160);
+                                    Assert(hasApproach, $"{room.Name} platform at {platform.X},{platform.Y} has a reachable adjacent surface");
+                                }
+
+                                foreach (var pickup in room.Pickups)
+                                    Assert(room.Solids.Any(solid =>
+                                            pickup.Position.Y == solid.Y - GameWorld.PickupRadius &&
+                                            pickup.Position.X >= solid.X && pickup.Position.X <= solid.Right),
+                                        $"{room.Name} pickup {pickup.Id} floats above a real support surface");
+                            }
+            });
+            yield return new TestCase("main route contains mandatory gaps and major elevation changes", () =>
+            {
+                foreach (var room in new[] { RoomCatalog.Hub, RoomCatalog.Branch })
+                            {
+                                var floorSegments = room.Solids
+                                    .Where(solid => solid.Height > 24)
+                                    .OrderBy(solid => solid.X)
+                                    .ToArray();
+                                Assert(floorSegments.Length >= 3,
+                                    $"{room.Name} has separated recovery and combat plateaus");
+                                Assert(floorSegments.Zip(floorSegments.Skip(1))
+                                        .Count(pair => pair.First.Right < pair.Second.X) >= 2,
+                                    $"{room.Name} has at least two floorless traversal zones");
+                                Assert(room.Solids.Min(solid => solid.Y) <= 248,
+                                    $"{room.Name} forces the route onto a substantially higher plateau");
+
+                                var straightLine = new GameWorld();
+                                SetProperty(straightLine, nameof(GameWorld.Room), room.Id);
+                                SetProperty(straightLine, nameof(GameWorld.PlayerPosition), room.Spawn);
+                                SetProperty(straightLine, nameof(GameWorld.Health), GameWorld.MaximumHealth);
+                                for (var step = 0; step < 50; step++)
+                                    straightLine.Update(new InputFrame(1, false, false, Vector2.UnitX, false, false, false, false), 0.05f);
+
+                                Assert(straightLine.Health < GameWorld.MaximumHealth,
+                                    $"holding right without jumping falls in {room.Name}");
+                                Assert(straightLine.PlayerPosition.X < room.Bounds.Right / 2f,
+                                    $"holding right cannot bypass {room.Name}'s platform route");
+                            }
             });
             yield return new TestCase("presentation-facing updates do not mutate collision authority", () =>
             {
@@ -210,7 +263,7 @@ internal static class WorldTests
                 var game = new GameWorld();
 
                             SetProperty(game, nameof(GameWorld.Room), 1);
-                            SetProperty(game, nameof(GameWorld.PlayerPosition), new Vector2(1440, 480));
+                            SetProperty(game, nameof(GameWorld.PlayerPosition), RoomCatalog.Branch.Shortcut);
                             SetProperty(game, nameof(GameWorld.ShortcutUnlocked), false);
                             InvokePrivate(game, "Interact");
 

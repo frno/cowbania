@@ -25,6 +25,12 @@ internal sealed class StageRenderer(RenderContext context)
             Prop("cactus_0", new NumericsVector2(room.Bounds.X + 820, room.Ground.Y), 3, tint: tint);
             Prop("cactus_1", new NumericsVector2(room.Bounds.X + 1320, room.Ground.Y), 3, tint: tint);
             Prop("crate", new NumericsVector2(room.Bounds.X + 610, room.Ground.Y), 2, tint: tint);
+            Prop("wagon_debris", new NumericsVector2(room.Bounds.X + 1580, room.Ground.Y), 3, tint: tint);
+            Prop("cactus_0", new NumericsVector2(room.Bounds.X + 2140, room.Ground.Y), 3, tint: tint);
+            Prop("mine_timber", new NumericsVector2(room.Bounds.X + 2700, room.Ground.Y), 3, tint: tint);
+            Prop("cactus_1", new NumericsVector2(room.Bounds.X + 3540, room.Ground.Y), 3, tint: tint);
+            Prop("wagon_debris", new NumericsVector2(room.Bounds.X + 4020, room.Ground.Y), 3, tint: tint);
+            Prop("sign", new NumericsVector2(room.Bounds.X + 4740, room.Ground.Y), 3, flip: true, tint: tint);
         }
         else
         {
@@ -32,13 +38,21 @@ internal sealed class StageRenderer(RenderContext context)
             Prop("mine_timber", new NumericsVector2(room.Bounds.X + 1220, room.Ground.Y), 3, tint: tint);
             Prop("wagon_debris", new NumericsVector2(room.Bounds.X + 980, room.Ground.Y), 3, tint: tint);
             Prop("cactus_0", new NumericsVector2(room.Bounds.X + 280, room.Ground.Y), 3, tint: tint);
+            Prop("cactus_1", new NumericsVector2(room.Bounds.X + 1880, room.Ground.Y), 3, tint: tint);
+            Prop("wagon_debris", new NumericsVector2(room.Bounds.X + 2520, room.Ground.Y), 3, tint: tint);
+            Prop("sign", new NumericsVector2(room.Bounds.X + 3100, room.Ground.Y), 3, tint: tint);
+            Prop("mine_timber", new NumericsVector2(room.Bounds.X + 3880, room.Ground.Y), 3, tint: tint);
+            Prop("crate", new NumericsVector2(room.Bounds.X + 4260, room.Ground.Y), 2, tint: tint);
+            Prop("mine_timber", new NumericsVector2(room.Bounds.X + 5160, room.Ground.Y), 3, tint: tint);
+            Prop("cactus_0", new NumericsVector2(room.Bounds.X + 5540, room.Ground.Y), 3, tint: tint);
+            Prop("sign", new NumericsVector2(room.Bounds.X + 6080, room.Ground.Y), 3, flip: true, tint: tint);
         }
     }
 
     public void DrawSolid(RoomRect solid, RoomDefinition room)
     {
         var rectangle = context.Camera.ToScreen(solid);
-        var isGround = solid == room.Ground;
+        var isGround = solid.Height > 24;
         context.Rect(rectangle, new Color(35, 24, 32));
         var viewport = new Rectangle(0, 0, context.GraphicsDevice.Viewport.Width, context.GraphicsDevice.Viewport.Height);
         var clip = Rectangle.Intersect(rectangle, viewport);
@@ -76,12 +90,15 @@ internal sealed class StageRenderer(RenderContext context)
 
     public void DrawForeground(RoomDefinition room, StagePalette palette)
     {
-        var ground = context.Camera.ToScreen(room.Ground);
-        for (var x = ground.X + 6; x < ground.Right; x += 48)
+        foreach (var surface in room.Solids.Where(solid => solid.Height > 24))
         {
-            var blade = ((x / 48) & 1) == 0 ? 6 : 10;
-            context.Rect(new Rectangle(x, ground.Y - blade, 3, blade), palette.GroundTop);
-            context.Rect(new Rectangle(x + 6, ground.Y - Math.Max(4, blade - 3), 3, Math.Max(4, blade - 3)), palette.GroundTop);
+            var ground = context.Camera.ToScreen(surface);
+            for (var x = ground.X + 6; x < ground.Right; x += 48)
+            {
+                var blade = ((x / 48) & 1) == 0 ? 6 : 10;
+                context.Rect(new Rectangle(x, ground.Y - blade, 3, blade), palette.GroundTop);
+                context.Rect(new Rectangle(x + 6, ground.Y - Math.Max(4, blade - 3), 3, Math.Max(4, blade - 3)), palette.GroundTop);
+            }
         }
     }
 

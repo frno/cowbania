@@ -184,6 +184,11 @@ public sealed class GameWorld
         PlayerSystem.UpdateInput(state, input, elapsedSeconds);
         RevolverSystem.Update(state, input, elapsedSeconds);
         PlayerSystem.Move(state, input.Horizontal, elapsedSeconds);
+        if (state.PlayerPosition.Y > state.CurrentRoom.Bounds.Bottom + PlayerBodyHeight)
+        {
+            WorldProgressionSystem.RecoverFromFall(state);
+            return;
+        }
 
         if (ProjectileSystem.Update(state, elapsedSeconds))
             return;

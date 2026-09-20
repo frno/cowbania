@@ -39,30 +39,19 @@ internal static class EnemiesTests
                             Assert(game.Enemies.Select(enemy => enemy.Position).SequenceEqual(RoomCatalog.Branch.EnemySpawns),
                                 "branch enemies start at the authored placements");
             });
-            yield return new TestCase("enemy definitions assign stable bandit and wildlife encounters", () =>
+            yield return new TestCase("enemy definitions populate varied frontier encounters", () =>
             {
-                Assert(RoomCatalog.Hub.EnemyDefinitions.Select(enemy => enemy.Archetype)
-                                    .SequenceEqual(new[]
-                                    {
-                                        EnemyArchetype.Bandit,
-                                        EnemyArchetype.Wildlife,
-                                        EnemyArchetype.DynamiteArmadillo
-                                    }),
-                                "hub slots are assigned bandit wildlife then armadillo");
-                            Assert(RoomCatalog.Branch.EnemyDefinitions.Select(enemy => enemy.Archetype)
-                                    .SequenceEqual(new[]
-                                    {
-                                        EnemyArchetype.Wildlife,
-                                        EnemyArchetype.Bandit,
-                                        EnemyArchetype.SidewinderSnake
-                                    }),
-                                "branch slots are assigned wildlife bandit then sidewinder snake");
-                            Assert(RoomCatalog.Hub.EnemyDefinitions.Concat(RoomCatalog.Branch.EnemyDefinitions)
-                                    .Select(enemy => enemy.Id).Distinct().Count() == 6,
+                var definitions = RoomCatalog.Hub.EnemyDefinitions.Concat(RoomCatalog.Branch.EnemyDefinitions).ToArray();
+                            Assert(definitions.Length == 22,
+                                "the expanded frontier contains twenty-two paced encounters");
+                            Assert(definitions.Select(enemy => enemy.Id).Distinct(StringComparer.Ordinal).Count() == definitions.Length,
                                 "all authored enemy ids are stable and unique");
-                            Assert(RoomCatalog.Hub.EnemyDefinitions.Single(enemy => enemy.Id == "hub-armadillo-2").HorizontalLeash == 90 &&
-                                   RoomCatalog.Branch.EnemyDefinitions.Single(enemy => enemy.Id == "branch-snake-2").HorizontalLeash == 0,
-                                "new authored encounters preserve their room-geometry-specific leash contracts");
+                            foreach (var archetype in Enum.GetValues<EnemyArchetype>())
+                                Assert(definitions.Count(enemy => enemy.Archetype == archetype) >= 3,
+                                    $"{archetype} appears repeatedly across the expanded encounter mix");
+                            Assert(definitions.Where(enemy => enemy.Archetype == EnemyArchetype.SidewinderSnake)
+                                    .All(enemy => enemy.HorizontalLeash == 0),
+                                "hidden sidewinders remain fixed to their authored ambush points");
             });
             yield return new TestCase("wildlife lunge damage occurs once during active attack", () =>
             {
@@ -93,7 +82,10 @@ internal static class EnemiesTests
                             for (var step = 0; step < 120; step++)
                             {
                                 SetProperty(game, nameof(GameWorld.PlayerPosition),
-                                    new Vector2(step % 2 == 0 ? 12 : 1588, RoomCatalog.Hub.Ground.Y));
+                                    new Vector2(step % 2 == 0
+                                        ? RoomCatalog.Hub.Bounds.X + GameWorld.PlayerBodyWidth / 2f
+                                        : RoomCatalog.Hub.Bounds.Right - GameWorld.PlayerBodyWidth / 2f,
+                                        RoomCatalog.Hub.Ground.Y));
                                 game.Update(default, 0.05f);
 
                                 foreach (var pair in game.Enemies.Zip(RoomCatalog.Hub.EnemyDefinitions))

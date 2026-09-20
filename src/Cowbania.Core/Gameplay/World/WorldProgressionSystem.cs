@@ -57,6 +57,21 @@ internal static class WorldProgressionSystem
         ResetEncounter(state, state.Room);
     }
 
+    internal static void RecoverFromFall(GameWorldState state)
+    {
+        state.Health--;
+        if (state.Health <= 0)
+            state.Health = GameWorld.MaximumHealth;
+
+        var recoveryRoom = state.Room;
+        state.PlayerPosition = state.CheckpointActivated && state.CheckpointRoom == recoveryRoom
+            ? state.CheckpointPosition
+            : state.CurrentRoom.Spawn;
+        state.PlayerVelocity = Vector2.Zero;
+        ClearTransientEncounterState(state);
+        ResetEncounter(state, recoveryRoom);
+    }
+
     private static void ClearTransientEncounterState(GameWorldState state) =>
         state.Projectiles.Clear();
 

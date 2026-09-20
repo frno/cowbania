@@ -177,7 +177,8 @@ internal static class CombatTests
                             Assert(game.Projectiles.Count == 1 && !game.Enemies[0].Alive,
                                 "the pre-transition encounter contains transient projectile and defeat state");
 
-                            SetProperty(game, nameof(GameWorld.PlayerPosition), new Vector2(1570, 480));
+                            SetProperty(game, nameof(GameWorld.PlayerPosition),
+                                new Vector2(RoomCatalog.Hub.Bounds.Right - 30, RoomCatalog.Hub.Ground.Y));
                             InvokePrivate(game, "Interact");
                             SetProperty(game, nameof(GameWorld.PlayerPosition), RoomCatalog.Branch.Shortcut);
                             InvokePrivate(game, "Interact");
