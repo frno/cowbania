@@ -33,9 +33,10 @@ alternate mixer route.
 
 ## Background music
 
-`Music_Background.wav` is a looping background track, played independently
-of the SFX above by `Cowbania.Host.Audio.MusicPlayer` (started once from
-`CowbaniaGame.LoadContent`, not routed through `AudioEventBus`). It must be
+`Music_Title.wav` is the grand title-film loop. It shares the gameplay track's techno-cowboy
+instrument palette, then expands it with brass, strings, and frontier drums. `Music_Background.wav`
+starts when Enter leaves the title. Both are played independently of the SFX above by
+`Cowbania.Host.Audio.MusicPlayer` and are not routed through `AudioEventBus`. They must be
 pre-processed for seamless looping before being dropped in this folder --
 MonoGame's `SoundEffectInstance.IsLooped` just seeks back to sample 0 the
 instant playback reaches the end, so any leftover discontinuity between the

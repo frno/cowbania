@@ -18,7 +18,8 @@ internal sealed class CowbaniaGame : Game
     private readonly PresentationTimeline timeline = new();
     private readonly AudioInitialization audioInitialization = new();
     private readonly AudioEventBus audioBus;
-    private readonly MusicPlayer musicPlayer;
+    private readonly MusicPlayer titleMusicPlayer;
+    private readonly MusicPlayer gameplayMusicPlayer;
     private readonly FrameTelemetry telemetry = new();
     private readonly TitleScreenState titleScreen = new();
     private GameUpdateCoordinator updateCoordinator = null!;
@@ -31,7 +32,8 @@ internal sealed class CowbaniaGame : Game
     {
         StartupDiagnostics.Mark("CowbaniaGame constructor start");
         audioBus = new AudioEventBus(audioInitialization);
-        musicPlayer = new MusicPlayer(audioInitialization);
+        titleMusicPlayer = new MusicPlayer(audioInitialization, "Music_Title.wav", 0.5f);
+        gameplayMusicPlayer = new MusicPlayer(audioInitialization);
         graphics = new GraphicsDeviceManager(this)
         {
             PreferredBackBufferWidth = 1024,
@@ -59,7 +61,7 @@ internal sealed class CowbaniaGame : Game
         assets = FrontierAssetLoader.Load(GraphicsDevice);
         audioInitialization.Start();
         audioBus.Load(GraphicsDevice);
-        musicPlayer.Start();
+        titleMusicPlayer.Start();
         timeline.Initialize(world);
         updateCoordinator = new GameUpdateCoordinator(
             world,
@@ -89,11 +91,18 @@ internal sealed class CowbaniaGame : Game
         if (telemetry.MarkFirstUpdate())
             StartupDiagnostics.Mark("first Update");
 
-        musicPlayer.Update();
+        titleMusicPlayer.Update();
+        gameplayMusicPlayer.Update();
         if (!titleScreen.HasStarted)
         {
+            var wasOnTitle = !titleScreen.HasStarted;
             titleScreen.Update(Keyboard.GetState().IsKeyDown(Keys.Enter));
             titleFilm?.Update((float)gameTime.ElapsedGameTime.TotalSeconds);
+            if (wasOnTitle && titleScreen.HasStarted)
+            {
+                titleMusicPlayer.Stop();
+                gameplayMusicPlayer.Start();
+            }
             base.Update(gameTime);
             telemetry.EndUpdate(measurement, gameTime, world);
             return;

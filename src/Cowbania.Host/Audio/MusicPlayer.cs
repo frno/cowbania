@@ -10,31 +10,42 @@ namespace Cowbania.Host.Audio;
 /// </summary>
 internal sealed class MusicPlayer
 {
-    private const string FileName = "Music_Background.wav";
-    private const float Volume = 0.45f;
+    private const string DefaultFileName = "Music_Background.wav";
+    private const float DefaultVolume = 0.45f;
 
     private readonly IMusicLoader loader;
     private readonly Func<string, string> pathResolver;
     private readonly IAudioInitialization? audioInitialization;
+    private readonly string fileName;
+    private readonly float volume;
     private IMusicPlayback? playback;
     private bool disabled;
     private bool startRequested;
 
     public MusicPlayer() : this(new ManagedWavMusicLoader(), ResolvePath) { }
 
-    public MusicPlayer(IAudioInitialization audioInitialization) : this(
+    public MusicPlayer(
+        IAudioInitialization audioInitialization,
+        string fileName = DefaultFileName,
+        float volume = DefaultVolume) : this(
         new ManagedWavMusicLoader(),
         ResolvePath,
-        audioInitialization) { }
+        audioInitialization,
+        fileName,
+        volume) { }
 
     internal MusicPlayer(
         IMusicLoader loader,
         Func<string, string> pathResolver,
-        IAudioInitialization? audioInitialization = null)
+        IAudioInitialization? audioInitialization = null,
+        string fileName = DefaultFileName,
+        float volume = DefaultVolume)
     {
         this.loader = loader;
         this.pathResolver = pathResolver;
         this.audioInitialization = audioInitialization;
+        this.fileName = fileName;
+        this.volume = Math.Clamp(volume, 0f, 1f);
     }
 
     public void Start()
@@ -67,7 +78,7 @@ internal sealed class MusicPlayer
     {
         if (disabled || playback is not null) return;
 
-        var path = pathResolver(FileName);
+        var path = pathResolver(fileName);
         if (!File.Exists(path))
         {
             RuntimeLog.Warn($"background music missing path=\"{path}\"");
@@ -79,7 +90,7 @@ internal sealed class MusicPlayer
         {
             RuntimeLog.Info($"background music load begin path=\"{path}\"");
             playback = loader.Load(path);
-            playback.Play(Volume);
+            playback.Play(volume);
             RuntimeLog.Info("background music playback started");
         }
         catch (Exception exception)
@@ -90,7 +101,11 @@ internal sealed class MusicPlayer
         }
     }
 
-    public void Stop() => playback?.Stop();
+    public void Stop()
+    {
+        startRequested = false;
+        playback?.Stop();
+    }
 
     private static string ResolvePath(string fileName)
     {

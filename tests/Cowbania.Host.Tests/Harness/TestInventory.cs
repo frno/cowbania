@@ -23,6 +23,7 @@ internal static class TestInventory
         "music start loads and plays once, ignoring later starts",
         "music decode failure disables playback without throwing",
         "music stop is safe before start and forwards to playback after start",
+        "title music stops before gameplay music starts",
         "music waits for audio initialization without blocking startup",
         "music stays disabled after audio initialization fails",
         "Frontier runtime has no placeholder asset references",

@@ -23,6 +23,7 @@ Included systems:
 - Player animation states: idle, run, jump, fall, shoot, reload, and hurt
 - Frontier animations for other visible animated objects where appropriate
 - A two-minute looping NanoGPT western title montage, dimmed over black beneath the centered Cowbania logo
+- A grand NanoGPT title theme that shares the gameplay soundtrack's techno-cowboy motif and hands off cleanly when play begins
 
 The title ships with cinematic and pixel-art cuts. The pixel-art cut is the default; set
 `COWBANIA_TITLE_FILM=cinematic` before launch to compare the original cinematic cut.

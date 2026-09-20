@@ -328,6 +328,36 @@ internal static class AudioTests
                     File.Delete(path);
                 }
             });
+            yield return new TestCase("title music stops before gameplay music starts", () =>
+            {
+                var path = Path.Combine(AppContext.BaseDirectory, "managed-music-switch.wav");
+                File.WriteAllBytes(path, CreatePcmWav([0, 0], sampleRate: 44100, channels: 1));
+                try
+                {
+                    var titlePlayback = new RecordingMusicPlayback();
+                    var gameplayPlayback = new RecordingMusicPlayback();
+                    var title = new MusicPlayer(
+                        new RecordingMusicLoader(titlePlayback), _ => path,
+                        fileName: "Music_Title.wav", volume: 0.5f);
+                    var gameplay = new MusicPlayer(
+                        new RecordingMusicLoader(gameplayPlayback), _ => path,
+                        fileName: "Music_Background.wav", volume: 0.45f);
+
+                    title.Start();
+                    Assert(titlePlayback.PlayCount == 1 && gameplayPlayback.PlayCount == 0,
+                        "title theme starts alone while the title film is active");
+                    title.Stop();
+                    gameplay.Start();
+                    Assert(titlePlayback.StopCount == 1 && gameplayPlayback.PlayCount == 1,
+                        "starting gameplay stops the grand title theme before beginning the gameplay loop");
+                    Assert(titlePlayback.LastVolume == 0.5f && gameplayPlayback.LastVolume == 0.45f,
+                        "title and gameplay tracks retain their independently authored volumes");
+                }
+                finally
+                {
+                    File.Delete(path);
+                }
+            });
             yield return new TestCase("music waits for audio initialization without blocking startup", () =>
             {
                 var path = Path.Combine(AppContext.BaseDirectory, "managed-music-deferred.wav");
